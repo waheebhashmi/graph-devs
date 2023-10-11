@@ -4,7 +4,7 @@ function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
     const lines = this.result.split('\n');
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 1; i < lines.length - 1; i++) { //skip first line and last line
       let valueArray = lines[i].split(",");
       let time = valueArray[0]; //time
       let model = valueArray[2]; //model
@@ -31,13 +31,13 @@ document.getElementById("myBtn").addEventListener("click", function () {
   readAndPrint(document.querySelector('input').files[0]);
 
   setTimeout(function () {
-    plotData();
+    makeGraph();
   }, 1000);
 });
 
 
 
-function plotData() {
+function makeGraph() {
   const svg = d3.select("svg"),
     width = +svg.attr("width"),
     height = +svg.attr("height");
