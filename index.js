@@ -62,7 +62,7 @@ function makeGraph() {
     .y(d => yScale(d.y))
     .curve(d3.curveStepAfter);
 
-  const lineThickness = 2;
+  const lineThickness = 4;
 
   groupedData.forEach((group, modelName) => {
     svg.append("path")
@@ -82,6 +82,36 @@ function makeGraph() {
         tooltip.style("visibility", "hidden");
       });
   });
+
+
+let yLegendSection = 65;  
+
+//legend
+const legend = svg.append('g')
+    .attr('class', 'legend');
+
+groupedData.forEach((group, modelName) => {
+    const legendSection = legend.append('g')
+        .attr('transform', `translate(0, ${yLegendSection})`);
+
+    legendSection.append('rect')
+        .attr('x', 780
+      )
+        .attr('y', 0)
+        .attr('width', 20)
+        .attr('height', 20)
+        .attr('fill', colorScale(modelName));
+
+    //model name
+    legendSection.append('text')
+        .attr('x', 800
+       + 15)
+        .attr('y', 15)
+        .text(modelName);
+
+    yLegendSection += 25;
+});
+
 
   svg.append("g")
     .attr("transform", "translate(0," + (height - 40) + ")")
