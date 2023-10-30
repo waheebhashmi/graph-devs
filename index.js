@@ -120,4 +120,8 @@ groupedData.forEach((group, modelName) => {
   svg.append("g")
     .attr("transform", "translate(40, 0)")
     .call(d3.axisLeft(yScale));
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/html_modified
