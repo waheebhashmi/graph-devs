@@ -37,107 +37,101 @@ document.getElementById("myBtn").addEventListener("click", function () {
 
 
 function makeGraph() {
-    const svg = d3.select("svg"),
-        width = +svg.attr("width"),
-        height = +svg.attr("height");
-    const tooltip = d3.select("#tooltip");
+  const svg = d3.select("svg"),
+      width = +svg.attr("width"),
+      height = +svg.attr("height");
+  const tooltip = d3.select("#tooltip");
+  const xOffset = 50;
 
-    const xOffset = 50;
+  const xScale = d3.scaleLinear()
+      .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
+      .range([xOffset, width - xOffset]);
 
-    const xScale = d3.scaleLinear()
-        .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
-        .range([xOffset, width - xOffset]);
+  // Group the data by model name
+  const groupedData = d3.group(data, d => d.model);
 
+  // Give each model a unique colour
+  const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+  const lineThickness = 3;
+  let yOffset = 50;
+  const yOffsetStep = height / groupedData.size - 100;
 
-    // Group the data by model name
-    const groupedData = d3.group(data, d => d.model);
+  // Use to keep track of x, y coords for each model (each group)
+  const modelToCoordMap = {};
 
-    // Give each model a unique colour
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+  groupedData.forEach((group, modelName) => {
+      const yScale = d3.scaleLinear()
+          .domain([0, 5]) // Fixed domain from 0 to 5
+          .range([yOffset + yOffsetStep, yOffset]);
 
+      const line = d3.line()
+          .x(d => xScale(d.x))
+          .y(d => yScale(d.y))
+          .curve(d3.curveStepAfter);
 
-    const lineThickness = 3;
+      modelToCoordMap[modelName] = createCoordMapping(group);
 
-    let yOffset = 50;
-    const yOffsetStep = height / groupedData.size - 100;
-
-    // Use to keep track of x, y coords for each model (each group)
-    const modelToCoordMap = {};
-
-    groupedData.forEach((group, modelName) => {
-
-        const yScale = d3.scaleLinear()
-            .domain([0, 5]) // Fixed domain from 0 to 5
-            .range([yOffset + yOffsetStep, yOffset]);
-
-
-        const line = d3.line()
-            .x(d => xScale(d.x))
-            .y(d => yScale(d.y))
-            .curve(d3.curveStepAfter);
-
-        console.log(group);
-        modelToCoordMap[modelName] = createCoordMapping(group);
-
-        svg.append("path")
-            .datum(group)
-            .attr("class", "line")
-            .attr("d", line)
-            .attr("fill", "none")
-            .attr("stroke", colorScale(modelName))
-            .attr("stroke-width", lineThickness)
-            .on("mouseover", function (event, d) {
-              const xValue = xScale.invert(event.offsetX);
-              tooltip.style("visibility", "visible")
-                .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
-                .style("top", (event.pageY - 10) + "px")
-                .style("left", (event.pageX + 10) + "px");
-            })
-            .on("mouseout", function () {
+      svg.append("path")
+          .datum(group)
+          .attr("class", "line")
+          .attr("d", line)
+          .attr("fill", "none")
+          .attr("stroke", colorScale(modelName))
+          .attr("stroke-width", lineThickness)
+          .on("mouseover", function (event) {
+              updateTooltip(event, modelName, xScale, modelToCoordMap);
+          })
+          .on("mousemove", function (event) {
+              updateTooltip(event, modelName, xScale, modelToCoordMap);
+          })
+          .on("mouseout", function () {
               tooltip.style("visibility", "hidden");
-            });
+          });
 
-        // Y-axis for each model
-        svg.append("g")
-            .attr("transform", `translate(50,${2})`)
-            .call(d3.axisLeft(yScale).tickValues([0, 1, 2, 3, 4]));
+      // Y-axis for each model
+      svg.append("g")
+          .attr("transform", `translate(50,${2})`)
+          .call(d3.axisLeft(yScale).tickValues([0, 1, 2, 3, 4]));
 
+      yOffset += yOffsetStep;
+  });
 
-        yOffset += yOffsetStep;
-    });
+  svg.append("g")
+      .attr("transform", "translate(0," + (height - 450) + ")")
+      .call(d3.axisBottom(xScale));
 
+  // Legend
+  let yLegendSection = 1;
+  const legend = svg.append('g')
+      .attr('class', 'legend');
 
-    svg.append("g")
-        .attr("transform", "translate(0," + (height - 450) + ")")
-        .call(d3.axisBottom(xScale));
+  groupedData.forEach((group, modelName) => {
+      const legendSection = legend.append('g')
+          .attr('transform', `translate(0, ${yLegendSection})`);
 
+      legendSection.append('rect')
+          .attr('x', 780)
+          .attr('y', 0)
+          .attr('width', 20)
+          .attr('height', 20)
+          .attr('fill', colorScale(modelName));
 
-    // Legend
-    let yLegendSection = 1;
-    const legend = svg.append('g')
-        .attr('class', 'legend');
+      //model name
+      legendSection.append('text')
+          .attr('x', 800 + 15)
+          .attr('y', 15)
+          .text(modelName);
 
-    groupedData.forEach((group, modelName) => {
-        const legendSection = legend.append('g')
-            .attr('transform', `translate(0, ${yLegendSection})`);
-
-        legendSection.append('rect')
-            .attr('x', 780
-            )
-            .attr('y', 0)
-            .attr('width', 20)
-            .attr('height', 20)
-            .attr('fill', colorScale(modelName));
-
-        //model name
-        legendSection.append('text')
-            .attr('x', 800 
-            + 15)
-            .attr('y', 15)
-            .text(modelName);
-
-        yLegendSection += 25;
-    });
+      yLegendSection += 25;
+  });
+  
+  function updateTooltip(event, modelName, xScale, modelToCoordMap) {
+      const xValue = xScale.invert(event.offsetX);
+      tooltip.style("visibility", "visible")
+          .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
+          .style("top", (event.pageY - 10) + "px")
+          .style("left", (event.pageX + 10) + "px");
+  }
 }
 
 // Makes a map which we can reference to find the Y value of a model given its X coordinate
@@ -151,10 +145,13 @@ function createCoordMapping(groupData) {
     const xValue = groupData[i].x;
     const yValue = groupData[i].y[0];
 
-    if (map[xValue] === undefined && yValue !== undefined) {
+    if (yValue !== undefined) {
       map[xValue] = yValue;
     }
   }
+
+  console.log(groupData);
+  console.log(map);
 
   return map;
 }
