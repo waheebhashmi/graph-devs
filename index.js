@@ -42,9 +42,11 @@ function makeGraph() {
         height = +svg.attr("height");
     const tooltip = d3.select("#tooltip");
 
+    const xOffset = 50;
+
     const xScale = d3.scaleLinear()
         .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
-        .range([50, width - 50]);
+        .range([xOffset, width - xOffset]);
 
 
     // Group the data by model name
@@ -59,6 +61,9 @@ function makeGraph() {
     let yOffset = 50;
     const yOffsetStep = height / groupedData.size - 100;
 
+    // Use to keep track of x, y coords for each model (each group)
+    const modelToCoordMap = {};
+
     groupedData.forEach((group, modelName) => {
 
         const yScale = d3.scaleLinear()
@@ -71,6 +76,8 @@ function makeGraph() {
             .y(d => yScale(d.y))
             .curve(d3.curveStepAfter);
 
+        console.log(group);
+        modelToCoordMap[modelName] = createCoordMapping(group);
 
         svg.append("path")
             .datum(group)
@@ -80,14 +87,15 @@ function makeGraph() {
             .attr("stroke", colorScale(modelName))
             .attr("stroke-width", lineThickness)
             .on("mouseover", function (event, d) {
-                tooltip.style("visibility", "visible")
-                  .text("Model: " + modelName)
-                  .style("top", (event.pageY - 10) + "px")
-                  .style("left", (event.pageX + 10) + "px");
-              })
-              .on("mouseout", function () {
-                tooltip.style("visibility", "hidden");
-              });
+              const xValue = xScale.invert(event.offsetX);
+              tooltip.style("visibility", "visible")
+                .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
+                .style("top", (event.pageY - 10) + "px")
+                .style("left", (event.pageX + 10) + "px");
+            })
+            .on("mouseout", function () {
+              tooltip.style("visibility", "hidden");
+            });
 
         // Y-axis for each model
         svg.append("g")
@@ -132,4 +140,34 @@ function makeGraph() {
     });
 }
 
+// Makes a map which we can reference to find the Y value of a model given its X coordinate
+// Since we're piece-wise we use this later by using the largest x value in the map less
+// than or equal to the x coord we want the y for
+function createCoordMapping(groupData) {
+  const map = {};
+  map[0] = 0;
 
+  for (let i = 0; i < groupData.length; i++) {
+    const xValue = groupData[i].x;
+    const yValue = groupData[i].y[0];
+
+    if (map[xValue] === undefined && yValue !== undefined) {
+      map[xValue] = yValue;
+    }
+  }
+
+  return map;
+}
+
+function getYCoordFromX(x, mapping) {
+  let closestX = 0;
+
+  for (const coordX in mapping) {
+    const coordXNum = parseFloat(coordX); // Convert the key to a number
+    if (coordXNum <= x && coordXNum >= closestX) {
+      closestX = coordXNum;
+    }
+  }
+  
+  return mapping[closestX];
+}
