@@ -8,10 +8,15 @@ function readAndPrint(file) {
       let valueArray = lines[i].split(",");
       let time = valueArray[0]; //time
       let model = valueArray[2]; //model
+      
+      //appends out or in depending on if the word before last comma had 'out' or not
+      let modifier = valueArray[valueArray.length - 2].toLowerCase().includes('out') ? 'out' : 'in';
+      model = model + ' ' + modifier; 
+
       const linesSplitted = lines[i].trim().split('\n');
       const results = [];
       linesSplitted.forEach(line => {
-        const match = line.match(/(\b\d{1,2}\b)$/); 
+        const match = line.match(/(\b\d{1,3}\b)$/); 
         if (match) {
           results.push(match[1]); //frequency
         }
@@ -53,16 +58,21 @@ function makeGraph() {
   // Give each model a unique colour
   const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
   const lineThickness = 3;
-  let yOffset = 50;
-  const yOffsetStep = height / groupedData.size - 100;
+  let yOffset = 100;
+
+  //set height of graph based on number of models
+  const numModels = groupedData.size;
+  const fixedYOffsetStep = 100; //space between graphs
+  const totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
+  svg.attr("height", totalGraphHeight);
 
   // Use to keep track of x, y coords for each model (each group)
   const modelToCoordMap = {};
 
   groupedData.forEach((group, modelName) => {
       const yScale = d3.scaleLinear()
-          .domain([0, 5]) // Fixed domain from 0 to 5
-          .range([yOffset + yOffsetStep, yOffset]);
+           .domain([0, d3.max(group, d => d.y)])
+           .range([yOffset + fixedYOffsetStep - 50, yOffset]);
 
       const line = d3.line()
           .x(d => xScale(d.x))
@@ -88,16 +98,18 @@ function makeGraph() {
               tooltip.style("visibility", "hidden");
           });
 
-      // Y-axis for each model
-      svg.append("g")
-          .attr("transform", `translate(50,${2})`)
-          .call(d3.axisLeft(yScale).tickValues([0, 1, 2, 3, 4]));
+          //5 ticks for each y axis
+          const yAxis = d3.axisLeft(yScale).ticks(5);
+          const yGroup = svg.append("g")
+            .attr("transform", `translate(35,${0})`);
+      
+          yGroup.call(yAxis);
 
-      yOffset += yOffsetStep;
+      yOffset += fixedYOffsetStep;
   });
 
   svg.append("g")
-      .attr("transform", "translate(0," + (height - 450) + ")")
+      .attr("transform", `translate(0,${height - 50})`)
       .call(d3.axisBottom(xScale));
 
   // Legend
