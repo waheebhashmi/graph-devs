@@ -72,7 +72,7 @@ function makeGraph() {
   groupedData.forEach((group, modelName) => {
       const yScale = d3.scaleLinear()
            .domain([0, d3.max(group, d => d.y)])
-           .range([yOffset + fixedYOffsetStep - 50, yOffset]);
+           .range([yOffset + fixedYOffsetStep - 50, yOffset])
 
       const line = d3.line()
           .x(d => xScale(d.x))
@@ -98,44 +98,51 @@ function makeGraph() {
               tooltip.style("visibility", "hidden");
           });
 
-          //5 ticks for each y axis
+          //5 ticks for each y axis, Add yAxis' and their respective model names
           const yAxis = d3.axisLeft(yScale).ticks(5);
           const yGroup = svg.append("g")
-            .attr("transform", `translate(35,${0})`);
-      
-          yGroup.call(yAxis);
+            .attr("transform", `translate(50,${0})`)
+            yGroup.call(yAxis)
+            yGroup.call(g => g.append("text")
+                .attr("x", 25)
+                .attr("y", yOffset - 10)
+                .attr("fill", "currentColor")
+                .attr("text-anchor", "end")
+                .text(modelName))
 
+      //With each model, increment the offset for the next Y axis
       yOffset += fixedYOffsetStep;
   });
 
+  //Create X axis
   svg.append("g")
       .attr("transform", `translate(0,${height - 50})`)
       .call(d3.axisBottom(xScale));
 
-  // Legend
-  let yLegendSection = 1;
-  const legend = svg.append('g')
-      .attr('class', 'legend');
-
-  groupedData.forEach((group, modelName) => {
-      const legendSection = legend.append('g')
-          .attr('transform', `translate(0, ${yLegendSection})`);
-
-      legendSection.append('rect')
-          .attr('x', 780)
-          .attr('y', 0)
-          .attr('width', 20)
-          .attr('height', 20)
-          .attr('fill', colorScale(modelName));
-
-      //model name
-      legendSection.append('text')
-          .attr('x', 800 + 15)
-          .attr('y', 15)
-          .text(modelName);
-
-      yLegendSection += 25;
-  });
+  // // Legend
+  // let yLegendSection = 1;
+  // const legend = svg.append('g')
+  //     .attr('class', 'legend');
+  //
+  // groupedData.forEach((group, modelName) => {
+  //     const legendSection = legend.append('g')
+  //         .attr('transform', `translate(0, ${yLegendSection})`);
+  //
+  //     legendSection.append('rect')
+  //         .attr('x', 780)
+  //         .attr('y', 0)
+  //         .attr('width', 20)
+  //         .attr('height', 20)
+  //         .attr('fill', colorScale(modelName));
+  //
+  //     //model name
+  //     //legendSection.append('text')
+  //         .attr('x', 800 + 15)
+  //         .attr('y', 15)
+  //         .text(modelName);
+  //
+  //     yLegendSection += 25;
+  // });
   
   function updateTooltip(event, modelName, xScale, modelToCoordMap) {
       const xValue = xScale.invert(event.offsetX);
