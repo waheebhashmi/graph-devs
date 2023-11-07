@@ -72,7 +72,7 @@ function makeGraph() {
   groupedData.forEach((group, modelName) => {
       const yScale = d3.scaleLinear()
            .domain([0, d3.max(group, d => d.y)])
-           .range([yOffset + fixedYOffsetStep - 50, yOffset])
+           .range([yOffset + fixedYOffsetStep - 50, yOffset]);
 
       const line = d3.line()
           .x(d => xScale(d.x))
@@ -101,14 +101,14 @@ function makeGraph() {
           //5 ticks for each y axis, Add yAxis' and their respective model names
           const yAxis = d3.axisLeft(yScale).ticks(5);
           const yGroup = svg.append("g")
-            .attr("transform", `translate(50,${0})`)
+            .attr("transform", `translate(35,${0})`)
             yGroup.call(yAxis)
             yGroup.call(g => g.append("text")
-                .attr("x", 25)
+                .attr("x", 45)
                 .attr("y", yOffset - 10)
                 .attr("fill", "currentColor")
                 .attr("text-anchor", "end")
-                .text(modelName))
+                .text(modelName));
 
       //With each model, increment the offset for the next Y axis
       yOffset += fixedYOffsetStep;
