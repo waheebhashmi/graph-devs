@@ -101,7 +101,7 @@ function makeGraph() {
           //5 ticks for each y axis, Add yAxis' and their respective model names
           const yAxis = d3.axisLeft(yScale).ticks(5);
           const yGroup = svg.append("g")
-            .attr("transform", `translate(35,${0})`)
+            .attr("transform", `translate(50,${0})`)
             yGroup.call(yAxis)
             yGroup.call(g => g.append("text")
                 .attr("x", 45)
