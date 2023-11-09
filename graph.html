@@ -20,13 +20,19 @@
       font-size: 24px;
     }
 
-    #content {
+    #container {
       max-width: 1000px;
       margin: 20px auto;
-      padding: 20px;
+      display: flex;
+      justify-content: space-between; /* Place content and checkboxes divs to the left and right */
       background-color: white;
       border-radius: 5px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+    }
+
+    #content {
+      flex: 1; /* Take up available space */
     }
 
     #tooltip {
@@ -64,16 +70,16 @@
 
 <body>
   <div id="header">CELL DEVS SIMULATION AND ANALYSIS</div>
-  <div id="content">
-    <div id="tooltip"></div>
-    <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
-    <input type="file" id="fileInput">
-    <button id="myBtn">Generate Graph</button>
-    <svg width="1000" height="1200" id="line-char">
-    	<text x="500" y="1200" text anchor="middle">Time (seconds)</text>text>
-
-    	<text x="20" y="590" transform="rotate(-90,20,600)" text-anchor="middle">Frequency</text>text>
-    </svg>
+  <div id="container">
+    <div id="content">
+      <div id="tooltip"></div>
+      <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
+      <input type="file" id="fileInput">
+      <button id="myBtn">Generate Graph</button>
+      <svg width="1000" height="1200" id="line-chart"></svg>
+    </div>
+    <div id="checkboxes">
+    </div>
   </div>
   <script src="index.js"></script>
 </body>

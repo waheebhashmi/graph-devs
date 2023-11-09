@@ -66,52 +66,72 @@ function makeGraph() {
   const totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
   svg.attr("height", totalGraphHeight);
 
+  // Create checkboxes for each model
+  const checkboxesDiv = document.getElementById("checkboxes");
+  groupedData.forEach((group, modelName) => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.id = `checkbox-${modelName}`;
+    checkbox.checked = true; // Initially, all lines are visible
+    checkbox.addEventListener("change", () => toggleLineVisibility(modelName));
+    
+    const label = document.createElement("label");
+    label.htmlFor = `checkbox-${modelName}`;
+    label.appendChild(document.createTextNode(modelName));
+
+    checkboxesDiv.appendChild(checkbox);
+    checkboxesDiv.appendChild(label);
+  });
+
   // Use to keep track of x, y coords for each model (each group)
   const modelToCoordMap = {};
 
+  const lineGroups = {};
+
   groupedData.forEach((group, modelName) => {
-      const yScale = d3.scaleLinear()
-           .domain([0, d3.max(group, d => d.y)])
-           .range([yOffset + fixedYOffsetStep - 50, yOffset]);
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(group, d => d.y)])
+      .range([yOffset + fixedYOffsetStep - 50, yOffset]);
 
-      const line = d3.line()
-          .x(d => xScale(d.x))
-          .y(d => yScale(d.y))
-          .curve(d3.curveStepAfter);
+    // Create a new lineGroup for each model
+    const lineGroup = svg.append("g")
+    .style("display", "initial")
+    .attr("model", modelName);
 
-      modelToCoordMap[modelName] = createCoordMapping(group);
+    const line = d3.line()
+      .x(d => xScale(d.x))
+      .y(d => yScale(d.y))
+      .curve(d3.curveStepAfter);
 
-      svg.append("path")
-          .datum(group)
-          .attr("class", "line")
-          .attr("d", line)
-          .attr("fill", "none")
-          .attr("stroke", colorScale(modelName))
-          .attr("stroke-width", lineThickness)
-          .on("mouseover", function (event) {
-              updateTooltip(event, modelName, xScale, modelToCoordMap);
-          })
-          .on("mousemove", function (event) {
-              updateTooltip(event, modelName, xScale, modelToCoordMap);
-          })
-          .on("mouseout", function () {
-              tooltip.style("visibility", "hidden");
-          });
+    lineGroup
+      .append("path")
+      .datum(group)
+      .attr("class", "line")
+      .attr("d", line)
+      .attr("fill", "none")
+      .attr("stroke", colorScale(modelName))
+      .attr("stroke-width", lineThickness)
+      .attr("model", modelName);
 
-          //5 ticks for each y axis, Add yAxis' and their respective model names
-          const yAxis = d3.axisLeft(yScale).ticks(5);
-          const yGroup = svg.append("g")
-            .attr("transform", `translate(50,${0})`)
-            yGroup.call(yAxis)
-            yGroup.call(g => g.append("text")
-                .attr("x", 45)
-                .attr("y", yOffset - 10)
-                .attr("fill", "currentColor")
-                .attr("text-anchor", "end")
-                .text(modelName));
+    const yAxis = d3.axisLeft(yScale).ticks(5);
+    lineGroup
+      .append("g")
+      .attr("transform", `translate(50,${0})`)
+      .call(yAxis)
+      .call(g => g.append("text")
+        .attr("x", 45)
+        .attr("y", yOffset - 10)
+        .attr("fill", "currentColor")
+        .attr("text-anchor", "end")
+        .text(modelName));
 
-      //With each model, increment the offset for the next Y axis
-      yOffset += fixedYOffsetStep;
+    // Store the lineGroup in the lineGroups object
+    lineGroups[modelName] = lineGroup;
+
+    // Increment the yOffset
+    yOffset += fixedYOffsetStep;
+
+    modelToCoordMap[modelName] = createCoordMapping(group);
   });
 
   //Create X axis
@@ -169,9 +189,6 @@ function createCoordMapping(groupData) {
     }
   }
 
-  console.log(groupData);
-  console.log(map);
-
   return map;
 }
 
@@ -186,4 +203,26 @@ function getYCoordFromX(x, mapping) {
   }
   
   return mapping[closestX];
+}
+
+function toggleLineVisibility(modelName) {
+  const checkbox = document.getElementById(`checkbox-${modelName}`);
+  const lineGroup = d3.select(`g[model="${modelName}"]`);
+  
+  if (checkbox.checked) {
+    lineGroup.style("display", "initial");
+  } else {
+    lineGroup.style("display", "none");
+  }
+
+  //TODO: this isn't working, also do it dynamically instead of with a hardcoded yoffset
+  // Shift the visible lines up
+  const visibleLines = document.querySelectorAll(".line[style='display: initial;']");
+  let yOffset = 100;
+  
+  visibleLines.forEach(line => {
+    const parentGroup = line.parentNode;
+    parentGroup.attr("transform", `translate(0,${yOffset})`);
+    yOffset += fixedYOffsetStep;
+  });
 }
