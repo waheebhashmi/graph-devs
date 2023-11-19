@@ -125,6 +125,12 @@ function makeGraph() {
         .attr("text-anchor", "end")
         .text(modelName));
 
+    const xAxis = d3.axisBottom(xScale);
+    lineGroup
+      .append("g")
+      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - 50})`)
+      .call(xAxis);
+      
     // Store the lineGroup in the lineGroups object
     lineGroups[modelName] = lineGroup;
 
