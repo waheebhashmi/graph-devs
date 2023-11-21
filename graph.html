@@ -77,10 +77,14 @@
       <input type="file" id="fileInput">
       <button id="myBtn">Generate Graph</button>
       <svg width="1000" height="1200" id="line-chart">
-        <text x="500" y="1200" text anchor="middle">Time (seconds)</text>text>
-  
-        <text x="20" y="590" transform="rotate(-90,20,600)" text-anchor="middle">Frequency</text>text>
-      </svg>
+        <g transform="translate(0, 50)"> <!-- Adjusted to leave space for X-axis labels -->
+          <text x="500" y="1150" text-anchor="middle">Time (seconds)</text>
+        </g>
+      
+        <g transform="translate(20, 600) rotate(-90)"> <!-- Adjusted to leave space for Y-axis labels -->
+          <text text-anchor="middle">Frequency</text>
+        </g>
+      </svg>      
     </div>
     <div id="checkboxes">
     </div>

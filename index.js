@@ -111,7 +111,16 @@ function makeGraph() {
       .attr("fill", "none")
       .attr("stroke", colorScale(modelName))
       .attr("stroke-width", lineThickness)
-      .attr("model", modelName);
+      .attr("model", modelName)
+      .on("mouseover", function (event) {
+        updateTooltip(event, modelName, xScale, modelToCoordMap);
+      })
+      .on("mousemove", function (event) {
+        updateTooltip(event, modelName, xScale, modelToCoordMap);
+      })
+      .on("mouseout", function () {
+        tooltip.style("visibility", "hidden");
+      });
 
     const yAxis = d3.axisLeft(yScale).ticks(5);
     lineGroup
