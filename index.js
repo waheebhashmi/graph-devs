@@ -110,11 +110,33 @@ function makeGraph() {
       .attr("transform", `translate(50,${0})`)
       .call(yAxis)
       .call(g => g.append("text")
-        .attr("x", 45)
-        .attr("y", yOffset - 10)
-        .attr("fill", "currentColor")
-        .attr("text-anchor", "end")
-        .text(modelName));
+      .attr("x", 45)
+      .attr("y", yOffset - 10)
+      .attr("fill", "currentColor")
+      .attr("text-anchor", "end")
+      .text(modelName));
+
+    const yAxisLabel = lineGroup.append("g")
+      .attr("transform", "rotate(-90)")
+      .append("text")
+      .attr("x", 1-yOffset) // Adjust the position as needed
+      .attr("y", 12)      // Adjust the position as needed
+      .attr("fill", "currentColor")
+      .attr("text-anchor", "end")
+      .attr("font-size", "12px")  // Set the font size as needed
+      .text("Frequency");
+
+    const xAxisLabel = lineGroup.append("g")
+      .append("text")
+      .attr("x", 500) // Adjust the position as needed
+      .attr("y", 80+yOffset)  // Adjust the position as needed
+      .attr("fill", "currentColor")
+      .attr("text-anchor", "end")
+      .attr("font-size", "12px")  // Set the font size as needed
+      .text("Time (seconds)");
+
+
+
 
     const xAxis = d3.axisBottom(xScale);
     lineGroup
