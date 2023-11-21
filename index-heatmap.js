@@ -140,8 +140,6 @@ function makeHeatmap() {
 
 }
 
-
-
 function calculateCorrelation(model1, model2, data) {
   // Filter data for the specified models
   const model1Data = data.filter(d => d.model === model1);
@@ -187,10 +185,6 @@ function calculateCorrelation(model1, model2, data) {
   console.log("correlation between " + model1 + " and " + model2 + " is " + correlation);
   return correlation;
 }
-
-
-  
-
 
 
 // Makes a map which we can reference to find the Y value of a model given its X coordinate
