@@ -1,7 +1,5 @@
-
 let data = new Array();
-let data1 = new Array();
-function readAndPrint(file) {
+ function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
     const lines = this.result.split('\n');
@@ -22,8 +20,7 @@ function readAndPrint(file) {
           results.push(match[1]); //frequency
         }
       });
-      data.push({ x: parseFloat(time), y: results, model: model });
-      data1.push({ x: parseFloat(time), y: results, model: model });
+      data.push({ x: parseFloat(time), y: results, model: model , intIndex: 0, colorBoolean: true});
     }
 
   };
@@ -57,8 +54,6 @@ function makeGraph() {
 
   // Group the data by model name
   const groupedData = d3.group(data, d => d.model);
-  const groupedData1 = d3.group(data1, d => d.model);
-
 
 
   // Give each model a unique colour
@@ -80,11 +75,13 @@ function makeGraph() {
   const lineGroups = {};
 
   groupedData.forEach((group, modelName) => {
+  const index = data.findIndex(d => d.model === modelName);
     const yScale = d3.scaleLinear()
       .domain([0, d3.max(group, d => d.y)])
-      .range([yOffset + fixedYOffsetStep - 50, yOffset]);
+      .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
 
     // Create a new lineGroup for each model
+    colorBlack = data[index].colorBoolean;
     const lineGroup = svg.append("g")
     .style("display", "initial")
     .attr("model", modelName);
@@ -94,13 +91,14 @@ function makeGraph() {
       .y(d => yScale(d.y))
       .curve(d3.curveStepAfter);
 
+
     lineGroup
       .append("path")
       .datum(group)
       .attr("class", "line")
       .attr("d", line)
       .attr("fill", "none")
-      .attr("stroke", "black") //colorScale(modelName)
+      .attr("stroke", colorBlack ? "black" : "white") //colorScale(modelName)
       .attr("stroke-width", lineThickness)
       .attr("model", modelName);
 
@@ -111,17 +109,17 @@ function makeGraph() {
       .call(yAxis)
       .call(g => g.append("text")
       .attr("x", 45)
-      .attr("y", yOffset - 10)
-      .attr("fill", "currentColor")
+      .attr("y", yOffset - (data[index].intIndex * 100) - 10)
+      .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .text(modelName));
 
     const yAxisLabel = lineGroup.append("g")
       .attr("transform", "rotate(-90)")
       .append("text")
-      .attr("x", 1-yOffset) // Adjust the position as needed
+      .attr("x", 1-yOffset + (data[index].intIndex * 100)) // Adjust the position as needed
       .attr("y", 12)      // Adjust the position as needed
-      .attr("fill", "currentColor")
+      .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .attr("font-size", "12px")  // Set the font size as needed
       .text("Frequency");
@@ -129,8 +127,8 @@ function makeGraph() {
     const xAxisLabel = lineGroup.append("g")
       .append("text")
       .attr("x", 500) // Adjust the position as needed
-      .attr("y", 80+yOffset)  // Adjust the position as needed
-      .attr("fill", "currentColor")
+      .attr("y", 80+yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
+      .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .attr("font-size", "12px")  // Set the font size as needed
       .text("Time (seconds)");
@@ -141,16 +139,18 @@ function makeGraph() {
     const xAxis = d3.axisBottom(xScale);
     lineGroup
       .append("g")
-      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - 50})`)
+      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
       .call(xAxis);
       
     // Store the lineGroup in the lineGroups object
     lineGroups[modelName] = lineGroup;
 
     // Increment the yOffset
-    yOffset += fixedYOffsetStep;
+      yOffset += fixedYOffsetStep;
 
     modelToCoordMap[modelName] = createCoordMapping(group);
+
+
 
   });
 
@@ -194,7 +194,7 @@ function makeGraph() {
   function createCheckboxes() {
     const checkboxesDiv = document.getElementById("checkboxes");
 
-    groupedData1.forEach((group, modelName) => {
+    groupedData.forEach((group, modelName) => {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.id = `checkbox-${modelName}`;
@@ -254,28 +254,35 @@ function getYCoordFromX(x, mapping) {
 function toggleLineVisibility(modelName) {
   const checkbox = document.getElementById(`checkbox-${modelName}`);
   const lineGroup = d3.select(`g[model="${modelName}"]`);
+  const index = data.findIndex(d => d.model === modelName);
 
   if (checkbox.checked) {
-    // If checkbox is checked, show the line
+    data[index].colorBoolean = true;
     lineGroup.style("display", "initial");
-  } else {
-    // If checkbox is unchecked, hide the line and move data to the end of the array
-    const index = data.findIndex(d => d.model === modelName);
-    if (index !== -1) {
-      const movedData = data.splice(index, 1)[0];
-      data.push(movedData);
-      // Redraw the graph with the updated data
-      updateGraph();
+    for (let i = index+1; i < data.length-1; i++) {
+      if (document.getElementById(`checkbox-${data[i].model}`).checked) {
+        if (data[i].intIndex>0){
+          data[i].intIndex -= 1;
+        }
+      }
+      d3.select("svg").selectAll("*").remove();
+
+      makeGraph();
     }
+
+  } else {
+    data[index].colorBoolean = false;
+
+    d3.select("svg").selectAll("*").remove();
+    // Increment intIndex for every preceding model that is checked invisible
+    for (let i = index; i < data.length; i++) {
+      if (document.getElementById(`checkbox-${data[i].model}`).checked) {
+        data[i].intIndex += 1;
+      }
+    }
+    lineGroup.selectAll(".line").remove(); // Remove only the line elements in the specific lineGroup
+    makeGraph();
+    lineGroup.style("display", "none");
+
   }
 }
-
-function updateGraph() {
-  // Clear the existing graph and checkboxes
-
-  d3.select("svg").selectAll("*").remove();
-  // Redraw the graph with the updated data
-  makeGraph();
-}
-
-
