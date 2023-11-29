@@ -140,6 +140,7 @@ function makeGraph() {
     lineGroup
       .append("g")
       .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
+      .attr("fill", colorBlack ? "black" : "white")
       .call(xAxis);
       
     // Store the lineGroup in the lineGroups object
