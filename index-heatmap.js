@@ -117,26 +117,51 @@ function makeHeatmap() {
     .call(d3.axisLeft(y));
 
   // Draw the heatmap
-  svg.selectAll(".heatmap-rect")
-    .data(correlationMatrix)
-    .enter()
-    .append("g")
-    .attr("class", "heatmap-row")
-    .selectAll(".heatmap-rect")
-    .data(function (d, i) { return d.map((value, j) => ({ row: i, col: j, value: value })); })
-    .enter()
-    .append("rect")
-    .attr("x", function (d) { return x(models[d.col]); })
-    .attr("y", function (d) { return y(models[d.row]); })
-    .attr("width", x.bandwidth())
-    .attr("height", y.bandwidth())
-    .style("fill", function (d) {
-      if (typeof d.value !== 'undefined') {
-        return myColor(d.value);
-      } else {
-        return "gray";
-      }
-    });
+  svg.selectAll(".heatmap-row")
+  .data(correlationMatrix)
+  .enter()
+  .append("g")
+  .attr("class", "heatmap-row")
+  .selectAll(".heatmap-rect")
+  .data(function (d, i) { return d.map((value, j) => ({ row: i, col: j, value: value })); })
+  .enter()
+  .append("rect")
+  .attr("x", function (d) { return x(models[d.col]); })
+  .attr("y", function (d) { return y(models[d.row]); })
+  .attr("width", x.bandwidth())
+  .attr("height", y.bandwidth())
+  .attr("class", "heatmap-rect")
+  .style("fill", function (d) {
+    if (typeof d.value !== 'undefined') {
+      return myColor(d.value);
+    } else {
+      return "gray";
+    }
+  })
+  .on("mouseover", function (event, d) {
+    d3.select(this)
+      .style("stroke", "black")
+      .style("stroke-width", 2);
+
+    const tooltip = d3.select("#tooltip");
+    tooltip.transition()
+      .duration(200)
+      .style("visibility", "visible");
+
+    tooltip.html(`Correlation: ${d.value.toFixed(4)}`)
+      .style("left", (event.pageX) + "px")
+      .style("top", (event.pageY - 28) + "px");
+  })
+  .on("mouseout", function () {
+    d3.select(this)
+      .style("stroke", "none");
+
+    const tooltip = d3.select("#tooltip");
+    tooltip.transition()
+      .duration(500)
+      .style("visibility", "hidden");
+  });
+
 
 }
 
