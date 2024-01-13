@@ -61,10 +61,19 @@ function makeGraph() {
   const lineThickness = 3;
   let yOffset = 100;
 
-  //set height of graph based on number of models
   const numModels = groupedData.size;
-  const fixedYOffsetStep = 100; //space between graphs
-  const totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
+  const fixedYOffsetStep = 100; // space between graphs
+  const minHeight = 400; // minimum height
+  const thresholdYScale = 100; // threshold for y scale
+  let totalGraphHeight;
+
+
+  if (d3.max(data, d => d3.max(d.y)) > 100) {
+  totalGraphHeight = Math.max(numModels * fixedYOffsetStep, minHeight) * 4;
+  } else {
+  totalGraphHeight = Math.max(numModels * fixedYOffsetStep, minHeight);
+  }
+
   svg.attr("height", totalGraphHeight);
 
   
@@ -90,7 +99,6 @@ function makeGraph() {
       .x(d => xScale(d.x))
       .y(d => yScale(d.y))
       .curve(d3.curveStepAfter);
-
 
     lineGroup
       .append("path")
