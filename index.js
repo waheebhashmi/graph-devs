@@ -173,9 +173,5 @@ groupedData.forEach((group, modelName) => {
     .attr("transform", "translate(40, 0)")
     .call(d3.axisLeft(yScale));
 
-<<<<<<< Updated upstream
 }
 
-=======
-}
->>>>>>> Stashed changes
