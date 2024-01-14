@@ -41,6 +41,7 @@ function makeGraph() {
     width = +svg.attr("width"),
     height = +svg.attr("height");
   const tooltip = d3.select("#tooltip");
+  const modelToCoordMap = {};
 
   const xScale = d3.scaleLinear()
     .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
@@ -65,25 +66,76 @@ function makeGraph() {
   const lineThickness = 4;
 
   groupedData.forEach((group, modelName) => {
-    svg.append("path")
-      .datum(group)
-      .attr("class", "line")
-      .attr("d", line)
-      .attr("fill", "none")
-      .attr("stroke", colorScale(modelName))
-      .attr("stroke-width", lineThickness)
-      .on("mouseover", function (event, d) {
-        tooltip.style("visibility", "visible")
-          .text("Model: " + modelName)
-          .style("top", (event.pageY - 10) + "px")
-          .style("left", (event.pageX + 10) + "px");
-      })
-      .on("mouseout", function () {
-        tooltip.style("visibility", "hidden");
-      });
+    const lineGroup = svg.append("g")
+    .style("display", "initial")
+    .attr("model", modelName);
+
+  const line = d3.line()
+    .x(d => xScale(d.x))
+    .y(d => yScale(d.y))
+    .curve(d3.curveStepAfter);
+
+  lineGroup
+    .append("path")
+    .datum(group)
+    .attr("class", "line")
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke", colorScale(modelName))
+    .attr("stroke-width", lineThickness)
+    .attr("model", modelName)
+    .on("mouseover", function (event) {
+      updateTooltip(event, modelName, xScale, modelToCoordMap);
+    })
+    .on("mousemove", function (event) {
+      updateTooltip(event, modelName, xScale, modelToCoordMap);
+    })
+    .on("mouseout", function () {
+      tooltip.style("visibility", "hidden");
+    });
+
+
+  modelToCoordMap[modelName] = createCoordMapping(group);
+
+
+  function updateTooltip(event, modelName, xScale, modelToCoordMap) {
+    const xValue = xScale.invert(event.offsetX);
+    tooltip.style("visibility", "visible")
+      .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
+      .style("top", (event.pageY - 10) + "px")
+      .style("left", (event.pageX + 10) + "px");
+  }
   });
 
-
+  function createCoordMapping(groupData) {
+    const map = {};
+    map[0] = 0;
+  
+    for (let i = 0; i < groupData.length; i++) {
+      const xValue = groupData[i].x;
+      const yValue = groupData[i].y[0];
+  
+      if (yValue !== undefined) {
+        map[xValue] = yValue;
+      }
+    }
+  
+    return map;
+  }
+  
+  function getYCoordFromX(x, mapping) {
+    let closestX = 0;
+  
+    for (const coordX in mapping) {
+      const coordXNum = parseFloat(coordX); // Convert the key to a number
+      if (coordXNum <= x && coordXNum >= closestX) {
+        closestX = coordXNum;
+      }
+    }
+  
+    return mapping[closestX];
+  }
+  
 let yLegendSection = 65;  
 
 //legend
@@ -121,5 +173,9 @@ groupedData.forEach((group, modelName) => {
     .attr("transform", "translate(40, 0)")
     .call(d3.axisLeft(yScale));
 
+<<<<<<< Updated upstream
 }
 
+=======
+}
+>>>>>>> Stashed changes
