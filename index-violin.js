@@ -38,83 +38,107 @@ document.getElementById("myBtn").addEventListener("click", function () {
 });
 
 function makeViolinPlot() {
+  var margin = {top: 10, right: 30, bottom: 30, left: 40},
+      width = 460 - margin.left - margin.right,
+      height = 400 - margin.top - margin.bottom;
+
+  var svg = d3.select("#violin-plot").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+
   const models = Array.from(new Set(data.map(d => d.model))); // Get unique model names
 
-  // Set up the SVG dimensions and margins
-  var margin = { top: 30, right: 50, bottom: 100, left: 50 };
+  // Group the data by model name
+  const groupedData = d3.group(data, d => d.model);
+  const modelToCoordMap = {};
+  groupedData.forEach((group, modelName) => {
+    modelToCoordMap[modelName] = createCoordMapping(group);
+  });
 
-  // Get the dimensions of the container element
-  var container = d3.select("#violin-plot");
-  var containerWidth = container.node().getBoundingClientRect().width;
-  var containerHeight = container.node().getBoundingClientRect().height;
+  // Find GCD of differences between times to use for correlation calculation
+  const gcdOfTimeDifferences = findGCDOfTimeDifferences(data);
+  console.log("GCD of time differences:", gcdOfTimeDifferences);
 
-  // Calculate the width and height of the SVG based on container dimensions and margins
-  var width = containerWidth - margin.left - margin.right;
-  var height = containerHeight - margin.top - margin.bottom;
+  // prepare the data for sampling - we want to get pairs at given times
+  const timeSeries = createTimeSeries(data, modelToCoordMap, gcdOfTimeDifferences, models);
 
-  // Append the SVG to the body of the page
-  var svg = container
-    .selectAll("svg")
-    .data([null]) // Use a single-element array for data join
-    .enter()
-    .append("svg")
-    .attr("width", containerWidth)
-    .attr("height", containerHeight)
-    .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+  // Group timeSeries by model
+  const timeSeriesByModel = d3.group(timeSeries, d => d.model);
 
-  // Build and Show the Y scale
+  console.log(timeSeriesByModel);
+
+  const modelValues = {}
+  models.forEach((model, index) => {
+    modelValues[model] = timeSeriesByModel.get(model).map(d => d.value);
+  });
+
+  console.log(modelValues);
+
   var y = d3.scaleLinear()
-    .domain([0, d3.max(data, d => d3.max(d.y.map(Number)))]) // Adjust the domain based on your data
-    .range([height, 0]);
-  svg.append("g").call(d3.axisLeft(y));
+    .domain([0, 1000])          //setting manually for now
+    .range([height, 0])
+  svg.append("g").call( d3.axisLeft(y) );
 
-  // Build and Show the X scale
+  // Build and Show the X scale. It is a band scale like for a boxplot: each group has an dedicated RANGE on the axis. This range has a length of x.bandwidth
   var x = d3.scaleBand()
-    .range([0, width])
-    .domain(models)
-    .padding(0.05);
+    .range([ 0, width ])
+    .domain([models])
+    .padding(0.05)     // This is important: it is the space between 2 groups. 0 means no padding. 1 is the maximum.
   svg.append("g")
     .attr("transform", "translate(0," + height + ")")
     .call(d3.axisBottom(x));
 
   // Features of the histogram
   var histogram = d3.histogram()
-    .domain(y.domain())
-    .thresholds(y.ticks(20))
-    .value(d => d);
+        .domain(y.domain())
+        .thresholds(y.ticks(20))    // Important: how many bins approx are going to be made? It is the 'resolution' of the violin plot
+        .value(d => d);
+  
+  // Compute the binning for each model
+  var sumstat = new Map();
+  models.forEach(model => {
+    const input = modelValues[model];    // Get the values for the current model
+    const bins = histogram(input);   // Compute the binning on it
+    sumstat.set(model, bins);
+  });
 
-  // Compute the binning for each group of the dataset
-  var sumstat = d3.group(data, d => d.model);
+  console.log(sumstat);
+
+  var maxBinLength = 0;
+
+  sumstat.forEach(bins => {
+    bins.forEach(bin => {
+      if (bin.length > maxBinLength) {
+        maxBinLength = bin.length;
+      }
+    });
+  });
 
   // The maximum width of a violin must be x.bandwidth = the width dedicated to a group
   var xNum = d3.scaleLinear()
     .range([0, x.bandwidth()])
-    .domain([-d3.max(Array.from(sumstat.values()), d => d3.max(d, v => v.y.length)), d3.max(Array.from(sumstat.values()), d => d3.max(d, v => v.y.length))]);
+    .domain([-maxBinLength,maxBinLength])
 
-  // Add the shape to this svg!
-  svg
-    .selectAll("myViolin")
-    .data(sumstat)
-    .enter()
-    .append("g")
-    .attr("transform", function (d) {
-      const translation = x(d.key);
-      return translation ? "translate(" + translation + ",0)" : null;
-    })
-    .append("path")
-    .datum(function (d) { return (histogram(d[1].map(v => v.y.map(Number)))) })
-    .style("stroke", "none")
-    .style("fill", "#69b3a2")
-    .attr("d", d3.area()
-      .x0(function (d) { return (xNum(-d.length)) })
-      .x1(function (d) { return (xNum(d.length)) })
-      .y(function (d) { return (y(d.x0)) })
-      .curve(d3.curveCatmullRom)
-    );
+  sumstat.forEach((bins, model) => {
+    svg.append("g")
+      .attr("transform", `translate(${x(model)},0)`) // Position each violin plot
+      .selectAll(".myViolin")
+      .data([bins]) // Bind the bins for the current model
+      .enter()
+      .append("path")
+        .attr("d", d3.area()
+          .x0(d => xNum(-d.length))
+          .x1(d => xNum(d.length))
+          .y(d => y(d.x0))
+          .curve(d3.curveCatmullRom))
+        .style("stroke", "none")
+        .style("fill", "#69b3a2");
+  });
+
 }
-
-
 
 // Makes a map which we can reference to find the Y value of a model given its X coordinate
 // Since we're piece-wise we use this later by using the largest x value in the map less
