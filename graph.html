@@ -3,18 +3,95 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>DEVS-Graph Extension w/ D3.js</title>
+  <title>CELL DEVS SIMULATION AND ANALYSIS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+      .scrollbar-container {
+            margin-top: 20px;
+        }
+    }
+
+    #header {
+      background-color: #007BFF;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+    }
+
+    #container {
+      max-width: 1000px;
+      margin: 20px auto;
+      display: flex;
+      justify-content: space-between; /* Place content and checkboxes divs to the left and right */
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+    }
+
+    #content {
+      flex: 1; /* Take up available space */
+    }
+
+    #tooltip {
+      position: absolute;
+      visibility: hidden;
+      padding: 10px;
+      background-color: white;
+      border: 1px solid black;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0;
+    }
+
+    input[type="file"] {
+      margin: 5px 0;
+    }
+
+    button#myBtn {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button#myBtn:hover {
+      background-color: #0056b3;
+    }
+  </style>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
-<div id="tooltip"
-  style="position: absolute; visibility: hidden; padding: 10px; background-color: white; border: 1px solid black;">
-</div>
-<label>Choose file to generate graph (.csv supported)</label>
-<input type="file">
-<button id="myBtn">Generate Graph</button>
 
-<svg width="1000" height="1200" id="line-chart"></svg>
-<script src="index.js"></script>
+<body>
+    <div id="header">CELL DEVS SIMULATION AND ANALYSIS</div>
+    <div id="container">
+        <div id="content">
+            <div id="tooltip"></div>
+            <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
+            <input type="file" id="fileInput">
+            <div style="display: flex; align-items: center; justify-content: space-around; margin-top: 10px;">
+           <button id="myBtn">Generate Graph</button>
+           <label for="xStart">X-Axis Start:</label>
+           <input id="xStart" type="number" value="0" style="margin-left: 10px;">
+           <label for="xEnd">X-Axis End:</label>
+           <input id="xEnd" type="number" value="100" style="margin-left: 10px;">
+           <button id="updateRange">Update Range</button>
+            </div>
+            <svg width="1000" height="1200"></svg>
+        </div>
+        <div id="checkboxes"></div>
+        <!-- Placeholder for scrollbars will be dynamically added here -->
+        <div id="scrollbars"></div>
+    </div>
+    <script src="index.js"></script>
 </body>
-
 </html>
