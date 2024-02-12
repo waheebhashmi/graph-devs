@@ -5,6 +5,9 @@ let realIndentedChildren;
 let indentedChildrensTopNode;
 let data = new Array();
 var globalModel = JSON.parse(localStorage.getItem('globalModel')) || [];
+let xScaleDomainStart = null; // Initialize x-axis start to null
+let xScaleDomainEnd = null;   // Initialize x-axis end to null
+
 for (let i = 0; i < globalModel.length; i++) {
  console.log(globalModel.top_model[i]);
 }
@@ -26,6 +29,8 @@ function readAndPrint(file) {
  const reader = new FileReader();
  reader.onload = function () {
    const lines = this.result.split('\n');
+     xScaleDomainStart = null; // Reset x-axis start
+        xScaleDomainEnd = null;   // Reset x-axis end
    for (let i = 1; i < lines.length - 1; i++) { //skip first line and last line
      let valueArray = lines[i].split(/[,;]/); // split by comma or semicolon
      let time = valueArray[0]; //time
@@ -38,31 +43,30 @@ function readAndPrint(file) {
      model = model + ' ' + modifier;
 
     //TO DO  turn the below into previous implementation a bit to make the y hoverpoint work
+let parsedValue;
+     let lastValue = valueArray[valueArray.length - 1].trim();
 
-     let lastValue = valueArray[valueArray.length - 1].trim(); // Get the last value and trim spaces
-     let parsedValue;
 
-     if (lastValue.includes('0x')) {
-       let hexMatch = lastValue.match(/0x[0-9A-Fa-f]+/);
-       parsedValue = hexMatch ? parseInt(hexMatch[0], 16) : 0; // Parse hex to integer, default to 0
-     } else if (/^\d+$/.test(lastValue)) {
-       parsedValue = parseInt(lastValue, 10); // Parse as integer
-     } else if (!/\d/.test(lastValue)) {
-       parsedValue = lastValue; // Parse the string as is
-       additionalStringValue = lastValue;
-      } else if (/\d/.test(lastValue)) { 
-        let intMatch = lastValue.match(/\d+/);
-        parsedValue = intMatch ? parseInt(intMatch[0], 10) : 0; // Default to 0 if no match
-      } else {
-
-        parsedValue = lastValue; // Use the full string as is
-
-      }
-
+     if (/\{.*?\}/.test(lastValue)) { 
+      parsedValue = lastValue;
+    } else if (lastValue.includes('0x')) {
+      let hexMatch = lastValue.match(/0x[0-9A-Fa-f]+/);
+      parsedValue = hexMatch ? hexMatch[0] : '0x0'; // Keep hex as string, default to '0x0'
+    } else if (/^\d+$/.test(lastValue)) {
+      parsedValue = parseInt(lastValue, 10); // Parse as integer
+    } else if (!/\d/.test(lastValue)) {
+      parsedValue = lastValue; // Parse the string as is
+    
+    } else {
+      // If it contains an integer along with anything else, parse only the integer
+      let intMatch = lastValue.match(/\d+/);
+      parsedValue = intMatch ? parseInt(intMatch[0], 10) : 0; // Default to 0 if no match
+    }
+    
 
 data.push({
   x: parseFloat(time),
-  y: parsedValue, // This is always an integer
+  y: parsedValue,
   model: model,
   intIndex: 0,
   colorBoolean: true
@@ -154,9 +158,11 @@ function makeGraph() {
 
 
  const xScale = d3.scaleLinear()
-   .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
-   .range([xOffset, width - xOffset]);
-
+ .domain([
+     xScaleDomainStart !== null ? xScaleDomainStart : d3.min(data, d => d.x), 
+     xScaleDomainEnd !== null ? xScaleDomainEnd : d3.max(data, d => d.x)
+ ])
+ .range([xOffset, width - xOffset]);
 
  // Group the data by model name
  const groupedData = d3.group(data, d => d.model);
@@ -173,33 +179,37 @@ function makeGraph() {
 
  //set height of graph based on number of models
  const numModels = sortedGroupedData.size;
- const fixedYOffsetStep = 100; //space between graphs
- const totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
+ const fixedYOffsetStep = 100; 
+ const minHeight = 400; 
+ let totalGraphHeight = Math.max(numModels * fixedYOffsetStep, minHeight) * (d3.max(data, d => d.y) > 100 ? 4 : 1);
  svg.attr("height", totalGraphHeight);
 
-
- // Create checkboxes for each model
- const checkboxesDiv = document.getElementById("checkboxes");
- sortedGroupedData.forEach((group, modelName) => {
+// Create checkboxes for each model
+const checkboxesDiv = document.getElementById("checkboxes");
+sortedGroupedData.forEach((group, modelName) => {
   
-   const checkbox = document.createElement("input");
-   checkbox.type = "checkbox";
-   checkbox.id = `checkbox-${modelName}`;
-   checkbox.checked = true; // Initially, all lines are visible
-   checkbox.addEventListener("change", () => toggleLineVisibility(modelName));
+  if (document.getElementById(`checkbox-${modelName}`)) {
+    return; // Skip the creation process if the checkbox already exists
+  }
+  
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.id = `checkbox-${modelName}`;
+  checkbox.checked = true; // Initially, all lines are visible
+  checkbox.addEventListener("change", () => toggleLineVisibility(modelName));
 
+  const label = document.createElement("label");
+  label.htmlFor = `checkbox-${modelName}`;
+  label.appendChild(document.createTextNode(modelName));
 
-   const label = document.createElement("label");
-   label.htmlFor = `checkbox-${modelName}`;
-   label.appendChild(document.createTextNode(modelName));
+  checkboxesDiv.appendChild(checkbox);
+  checkboxesDiv.appendChild(label);
+});
 
-
-   checkboxesDiv.appendChild(checkbox);
-   checkboxesDiv.appendChild(label);
-  });
-
-
-
+  function containsStructs(group) {
+    return group.some(d => typeof d.y === 'string' && d.y.startsWith("{") && d.y.endsWith("}"));
+  }
+  
 function isNumeric(data) {
   return data.every(d => !isNaN(parseFloat(d.y)) && isFinite(d.y));
 }
@@ -209,25 +219,48 @@ function isNumeric(data) {
 
  const lineGroups = {};
 
+function isHex(group){
+  return group.some(d => typeof d.y === 'string' && d.y.startsWith('0x'));
+}
+
+
+
+
+// Determine the height multiplier based on maxY
+
 
  sortedGroupedData.forEach((group, modelName) => {
   const index = data.findIndex(d => d.model === modelName);
   let yScale;
+  const maxY = d3.max(group, d => d.y);
+  let heightMultiplier = 1; // Default height multiplier
+  if (maxY > 100) {
+    heightMultiplier = 3;
+  } else if (maxY > 10) {
+     heightMultiplier = 2;
+  }
 
-  // Check if the y values are numeric for the current group
-  if (isNumeric(group)) {
-    // For numerical data, use a linear scale
+  if (isHex(group)) {
+    const uniqueHexValues = [...new Set(group.map(d => d.y))].sort();
+    yScale = d3.scalePoint()
+      .domain(uniqueHexValues)
+      .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+  }
+  else if (isNumeric(group)) {
     yScale = d3.scaleLinear()
       .domain([0, d3.max(group, d => d.y)])
-      .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
-  } else {
-    // For categorical data, use an ordinal scale
+
+            .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
+ 
+    }  else {
+ 
     const categories = Array.from(new Set(group.map(d => d.y))).sort();
     yScale = d3.scalePoint()
       .domain(categories)
       .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
-      .padding(0.5); // Adjust padding as needed
+      .padding(0.5);
   }
+  
 
    // Create a new lineGroup for each model
    colorBlack = data[index].colorBoolean;
@@ -409,3 +442,16 @@ function toggleLineVisibility(modelName) {
    yOffset += fixedYOffsetStep;
  });
 }
+document.getElementById("updateRange").addEventListener("click", function() {
+  const xStart = parseFloat(document.getElementById("xStart").value);
+  const xEnd = parseFloat(document.getElementById("xEnd").value);
+  
+  if (!isNaN(xStart) && !isNaN(xEnd) && xStart < xEnd) {
+      xScaleDomainStart = xStart;
+      xScaleDomainEnd = xEnd;
+      d3.select("svg").selectAll("*").remove(); // Clear SVG content
+      makeGraph(); // Redraw graph with new x-axis range
+  } else {
+      alert("Invalid x-axis range.");
+  }
+});
