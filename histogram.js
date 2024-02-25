@@ -6,6 +6,9 @@ var histogramSVGs = new Map();
 // Only sort the output data once per model
 var sortedValues = new Map();
 
+// Define an ordinal color scale with a scheme for categorical data
+var color = d3.scaleOrdinal(d3.schemeTableau10);
+
 function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
@@ -84,13 +87,6 @@ function makeHistograms() {
       width = 460 - margin.left - margin.right,
       height = 400 - margin.top - margin.bottom;
 
-  var svg = d3.select("#violin-plot").append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-      .attr("transform",
-            "translate(" + margin.left + "," + margin.top + ")");
-
   var y = d3.scaleLinear()
     .domain([0, 1000])          //setting manually for now
     .range([height, 0])
@@ -148,7 +144,7 @@ function makeHistograms() {
 
   var mainSvg = d3.select("#histogram")
       .attr("width", totalSvgWidth)
-      .attr("height", height * 2 + margin.top * 2 + margin.bottom * 2 + 30);
+      .attr("height", height * 2 + margin.top * 2 + margin.bottom * 2 - 250);
 
   sumstat.forEach((bins, modelName) => {
 
@@ -204,7 +200,7 @@ function makeHistograms() {
     .attr("width", d => x(d.x1) - x(d.x0) - 1)
     // Height of the bars should now represent the percentage
     .attr("height", d => height - y(d.percentage))
-    .style("fill", "#69b3a2");
+    .style("fill", () => color(modelName));
 
     // Add model name below each histogram
     svgGroup.append("text")
@@ -263,7 +259,7 @@ function makeBoxPlots() {
       .attr("width", xScale(Math.min(boxPlotData.q3, maxValue)) - xScale(Math.max(boxPlotData.q1, minValue))) // Use min and max to ensure it stays within scale
       .attr("height", 20) // fixed height for the box
       .attr("stroke", "black")
-      .style("fill", "#ccc");
+      .style("fill", () => color(model));
 
     // Create the median line
     boxPlotGroup.append("line")

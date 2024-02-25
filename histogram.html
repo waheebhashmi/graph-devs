@@ -21,12 +21,13 @@
     }
 
     #content {
-      max-width: 1000px;
+      max-width: 1300px;
       margin: 20px auto;
       padding: 20px;
       background-color: white;
       border-radius: 5px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      overflow: auto;
     }
 
     #tooltip {
@@ -69,7 +70,7 @@
     <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
     <input type="file" id="fileInput">
     <button id="myBtn">Generate Graph</button>
-    <svg width="1000" height="1200" id="histogram">
+    <svg width="1300" height="500" id="histogram">
     </svg>
   </div>
   <script src="histogram.js"></script>
