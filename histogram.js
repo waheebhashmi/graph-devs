@@ -246,18 +246,21 @@ function makeBoxPlots() {
     // Create the box plot group with the correct transform
     let boxPlotGroup = svgGroup.append("g")
       .attr("transform", `translate(0,${boxPlotHeight + 50 + boxPlotMargin.top})`);
-      // we don't need to offset x since each box plot is appended to the svg of the corresponding histogram
+
+    // Calculate the minimum and maximum values for xScale domain considering outliers
+    let minValue = Math.min(boxPlotData.min, d3.min(sortedValues[model]));
+    let maxValue = Math.max(boxPlotData.max, d3.max(sortedValues[model]));
 
     // Set the scale for the box plot
     let xScale = d3.scaleLinear()
-      .domain([d3.min(sortedValues[model]), d3.max(sortedValues[model])])
+      .domain([minValue, maxValue])
       .range([0, individualBoxPlotWidth]);
     
     // Create the box
     boxPlotGroup.append("rect")
-      .attr("x", xScale(boxPlotData.q1))
+      .attr("x", xScale(Math.max(boxPlotData.q1, minValue))) // Use max to ensure it stays within scale
       .attr("y", 0)
-      .attr("width", xScale(boxPlotData.q3) - xScale(boxPlotData.q1))
+      .attr("width", xScale(Math.min(boxPlotData.q3, maxValue)) - xScale(Math.max(boxPlotData.q1, minValue))) // Use min and max to ensure it stays within scale
       .attr("height", 20) // fixed height for the box
       .attr("stroke", "black")
       .style("fill", "#ccc");
@@ -270,41 +273,41 @@ function makeBoxPlots() {
       .attr("y2", 20)
       .attr("stroke", "black");
 
-    // Create whiskers
-    // Lower whisker
+    // Lower whisker line
     boxPlotGroup.append("line")
-      .attr("x1", xScale(boxPlotData.min))
-      .attr("x2", xScale(boxPlotData.min))
-      .attr("y1", 10)
-      .attr("y2", 10)
-      .attr("stroke", "black");
-
-    // Upper whisker
-    boxPlotGroup.append("line")
-      .attr("x1", xScale(boxPlotData.max))
-      .attr("x2", xScale(boxPlotData.max))
-      .attr("y1", 10)
-      .attr("y2", 10)
-      .attr("stroke", "black");
-
-    // Whisker lines
-    boxPlotGroup.append("line")
-      .attr("x1", xScale(boxPlotData.min))
+      .attr("x1", xScale(Math.max(boxPlotData.min, minValue))) // Use max to ensure it stays within scale
       .attr("x2", xScale(boxPlotData.q1))
       .attr("y1", 10)
       .attr("y2", 10)
       .attr("stroke", "black");
 
+    // Upper whisker line
     boxPlotGroup.append("line")
       .attr("x1", xScale(boxPlotData.q3))
-      .attr("x2", xScale(boxPlotData.max))
+      .attr("x2", xScale(Math.min(boxPlotData.max, maxValue))) // Use min to ensure it stays within scale
       .attr("y1", 10)
       .attr("y2", 10)
       .attr("stroke", "black");
 
+    // Lower whisker end
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(Math.max(boxPlotData.min, minValue)))
+      .attr("x2", xScale(Math.max(boxPlotData.min, minValue)))
+      .attr("y1", 8)
+      .attr("y2", 12)
+      .attr("stroke", "black");
+
+    // Upper whisker end
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(Math.min(boxPlotData.max, maxValue)))
+      .attr("x2", xScale(Math.min(boxPlotData.max, maxValue)))
+      .attr("y1", 8)
+      .attr("y2", 12)
+      .attr("stroke", "black");
+
     // Add an x-axis to the box plot
     boxPlotGroup.append("g")
-      .attr("transform", `translate(0,${50})`) // Adjust this as needed
+      .attr("transform", `translate(0,${50})`)
       .call(d3.axisBottom(xScale).ticks(5));
   });
 }
