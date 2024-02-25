@@ -3,6 +3,9 @@ let data = new Array();
 // Global variable to keep track of SVG elements for histograms
 var histogramSVGs = new Map();
 
+// Only sort the output data once per model
+var sortedValues = new Map();
+
 function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
@@ -36,27 +39,23 @@ document.getElementById("myBtn").addEventListener("click", function () {
   reader.readAsText(document.getElementById('fileInput').files[0]);
   readAndPrint(document.getElementById('fileInput').files[0]);
   setTimeout(function () {
+    prepareData();
     makeHistograms();
+    makeBoxPlots();
   }, 1000);
 });
 
-function makeHistograms() {
-  var margin = {top: 10, right: 30, bottom: 30, left: 40},
-      width = 460 - margin.left - margin.right,
-      height = 400 - margin.top - margin.bottom;
+var models = Array();
+var modelToCoordMap = {};
+var modelValues = {};
 
-  var svg = d3.select("#violin-plot").append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-      .attr("transform",
-            "translate(" + margin.left + "," + margin.top + ")");
+var totalSvgWidth = 0;
 
-  const models = Array.from(new Set(data.map(d => d.model))); // Get unique model names
+function prepareData() {
+  models = Array.from(new Set(data.map(d => d.model))); // Get unique model names
 
   // Group the data by model name
   const groupedData = d3.group(data, d => d.model);
-  const modelToCoordMap = {};
   groupedData.forEach((group, modelName) => {
     modelToCoordMap[modelName] = createCoordMapping(group);
   });
@@ -73,12 +72,24 @@ function makeHistograms() {
 
   console.log(timeSeriesByModel);
 
-  const modelValues = {}
   models.forEach((model, index) => {
     modelValues[model] = timeSeriesByModel.get(model).map(d => d.value);
   });
 
   console.log("modelValues: ", modelValues);
+}
+
+function makeHistograms() {
+  var margin = {top: 10, right: 30, bottom: 30, left: 40},
+      width = 460 - margin.left - margin.right,
+      height = 400 - margin.top - margin.bottom;
+
+  var svg = d3.select("#violin-plot").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
 
   var y = d3.scaleLinear()
     .domain([0, 1000])          //setting manually for now
@@ -90,8 +101,8 @@ function makeHistograms() {
     /* Freedman-Diaconis Rule: Choose the bin width (h) as 2 * IQR * n^(-1/3) where IQR is the interquartile range of the data and
      n is the number of data points. Then, divide the range of the data by the bin width to get the number of bins.*/
     
-    var values = modelValues[model];
-    values.sort(d3.ascending); // Sort values for accurate quantile calculation
+    sortedValues[model] = modelValues[model].sort(d3.ascending);
+    var values = sortedValues[model];
     var uniqueValues = Array.from(new Set(values));
   
     var bins;
@@ -130,14 +141,14 @@ function makeHistograms() {
 
   // Calculate the spacing between histograms
   var spaceBetweenHistograms = 40; // Adjust as needed
-  var totalSvgWidth = models.length * (width + spaceBetweenHistograms) + margin.left + margin.right;
+  totalSvgWidth = models.length * (width + spaceBetweenHistograms) + margin.left + margin.right;
 
   // Clear the main SVG to avoid duplicate histograms
   d3.select("#histogram").selectAll("*").remove();
 
   var mainSvg = d3.select("#histogram")
       .attr("width", totalSvgWidth)
-      .attr("height", height + margin.top + margin.bottom + 30);
+      .attr("height", height * 2 + margin.top * 2 + margin.bottom * 2 + 30);
 
   sumstat.forEach((bins, modelName) => {
 
@@ -203,6 +214,110 @@ function makeHistograms() {
       .text(modelName); // Set the text to the model name
   });
 
+}
+
+function makeBoxPlots() {
+  console.log(models);
+
+  // This is the margin around each box plot
+  var boxPlotMargin = {top: 10, right: 30, bottom: 30, left: 40},
+      // Width and height determine the size of the box plot area
+      boxPlotHeight = 400 - boxPlotMargin.top - boxPlotMargin.bottom;
+
+  // Number of models determines how many box plots we will have
+  var numberOfModels = models.length;
+
+  // Space between box plots
+  var spaceBetweenBoxPlots = 40;
+
+  // Calculate the available width for all box plots, considering the space between them
+  var availableWidth = totalSvgWidth - (spaceBetweenBoxPlots * (numberOfModels + 1));
+
+  // Padding on each side of the box plot
+  var padding = 10;
+
+  // Calculate the effective width for each individual box plot
+  var individualBoxPlotWidth = (availableWidth / numberOfModels) - (padding * 2);
+
+  models.forEach((model, index) => {
+    let svgGroup = histogramSVGs.get(model);
+    let boxPlotData = calculateBoxPlotData(sortedValues[model]);
+
+    // Create the box plot group with the correct transform
+    let boxPlotGroup = svgGroup.append("g")
+      .attr("transform", `translate(0,${boxPlotHeight + 50 + boxPlotMargin.top})`);
+      // we don't need to offset x since each box plot is appended to the svg of the corresponding histogram
+
+    // Set the scale for the box plot
+    let xScale = d3.scaleLinear()
+      .domain([d3.min(sortedValues[model]), d3.max(sortedValues[model])])
+      .range([0, individualBoxPlotWidth]);
+    
+    // Create the box
+    boxPlotGroup.append("rect")
+      .attr("x", xScale(boxPlotData.q1))
+      .attr("y", 0)
+      .attr("width", xScale(boxPlotData.q3) - xScale(boxPlotData.q1))
+      .attr("height", 20) // fixed height for the box
+      .attr("stroke", "black")
+      .style("fill", "#ccc");
+
+    // Create the median line
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(boxPlotData.median))
+      .attr("x2", xScale(boxPlotData.median))
+      .attr("y1", 0)
+      .attr("y2", 20)
+      .attr("stroke", "black");
+
+    // Create whiskers
+    // Lower whisker
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(boxPlotData.min))
+      .attr("x2", xScale(boxPlotData.min))
+      .attr("y1", 10)
+      .attr("y2", 10)
+      .attr("stroke", "black");
+
+    // Upper whisker
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(boxPlotData.max))
+      .attr("x2", xScale(boxPlotData.max))
+      .attr("y1", 10)
+      .attr("y2", 10)
+      .attr("stroke", "black");
+
+    // Whisker lines
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(boxPlotData.min))
+      .attr("x2", xScale(boxPlotData.q1))
+      .attr("y1", 10)
+      .attr("y2", 10)
+      .attr("stroke", "black");
+
+    boxPlotGroup.append("line")
+      .attr("x1", xScale(boxPlotData.q3))
+      .attr("x2", xScale(boxPlotData.max))
+      .attr("y1", 10)
+      .attr("y2", 10)
+      .attr("stroke", "black");
+
+    // Add an x-axis to the box plot
+    boxPlotGroup.append("g")
+      .attr("transform", `translate(0,${50})`) // Adjust this as needed
+      .call(d3.axisBottom(xScale).ticks(5));
+  });
+}
+
+function calculateBoxPlotData(modelValuesSorted) {
+  var q1 = d3.quantile(modelValuesSorted, .25)
+  var median = d3.quantile(modelValuesSorted, .5)
+  var q3 = d3.quantile(modelValuesSorted, .75)
+  var interQuantileRange = q3 - q1
+  var min = q1 - 1.5 * interQuantileRange
+  var max = q3 + 1.5 * interQuantileRange
+
+  return { q1: q1, median: median, q3: q3, min: min, max: max };
 }
 
 
