@@ -232,6 +232,7 @@ function makeGraph() {
 
   sortedGroupedData.forEach((group, modelName) => {
     const index = data.findIndex(d => d.model === modelName);
+
     let yScale;
     const maxY = d3.max(group, d => d.y);
     let heightMultiplier = 1; // Default height multiplier
@@ -241,156 +242,213 @@ function makeGraph() {
       heightMultiplier = 2;
     }
 
+    const containsStructuredData = group.some(d => d.showAsBlackBox);
 
+    if (containsStructuredData) {
+      let yScale = d3.scaleLinear()
+      .domain([0, 1]) // This can be any static domain since we don't use it for scaling
+      .range([yOffset + fixedYOffsetStep / 2, yOffset]);
 
-
-    if (isHex(group)) {
-      const uniqueHexValues = [...new Set(group.map(d => d.y))].sort();
-      yScale = d3.scalePoint()
-        .domain(uniqueHexValues)
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
-    }
-    else if (isNumeric(group)) {
-
-      //To do: merge Filip's change in here
-      yScale = d3.scaleLinear()
-        .domain([0, d3.max(group, d => d.y)])
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
-    } else {
-      const categories = Array.from(new Set(group.map(d => d.y))).sort();
-      yScale = d3.scalePoint()
-        .domain(categories)
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
-        .padding(0.5);
-    }
-
-
-
-
-    // Create a new lineGroup for each model
-    colorBlack = data[index].colorBoolean;
-    const lineGroup = svg.append("g")
-      .style("display", "initial")
-      .attr("model", modelName);
-
-
-    if (group.length === 1) {
-      lineGroup
-        .append("circle")
-        .attr("cx", xScale(group[0].x))
-        .attr("cy", yScale(group[0].y[0]))
-        .attr("r", 5) // Adjust the radius as needed
-        .attr("fill", colorScale(modelName));
-    }
-    else {
-      const line = d3.line()
-        .x(d => xScale(d.x))
-        .y(d => yScale(d.y))
-        .curve(d3.curveStepAfter);
-
-
-      lineGroup
-        .append("path")
-        .datum(group)
-        .attr("class", "line")
-        .attr("d", line)
-        .attr("fill", "none")
-        .attr("stroke", colorScale(modelName))
-        .attr("stroke-width", lineThickness)
+      // Model group for structured data
+      const bubbleGroup = svg.append("g")
         .attr("model", modelName)
-        .on("mouseover", function (event) {
-          updateTooltip(event, modelName, xScale, modelToCoordMap);
-        })
-        .on("mousemove", function (event) {
-          updateTooltip(event, modelName, xScale, modelToCoordMap);
-        })
-        .on("mouseout", function () {
-          tooltip.style("visibility", "hidden");
-        });
-    }
+        .style("display", "initial");
 
-    var tooltip1 = d3.select("body").append("div")
-      .attr("class", "tooltip")
-      .style("position", "absolute")
-      .style("text-align", "center")
-      .style("min-width", "120px") 
-      .style("min-height", "28px") 
-      .style("padding", "2px")
-      .style("font", "12px sans-serif")
-      .style("background", "white")
-      .style("border", "0px")
-      .style("border-radius", "8px")
+      // Add the X-axis
+      bubbleGroup.append("g")
+        .attr("transform", `translate(0,${yOffset + (fixedYOffsetStep / 2)})`)
+        .call(d3.axisBottom(xScale));
 
-    const showAsBlackBox = group.some(d => d.showAsBlackBox);
+      // Add the Y-axis (static, for visual consistency)
+      bubbleGroup.append("g")
+        .attr("transform", `translate(${xOffset},0)`)
+        .call(d3.axisLeft(yScale).ticks(0));
 
-    // Create yAxis (with black box condition)
-    const yAxis = d3.axisLeft(yScale).ticks(5);
-    lineGroup
-      .append("g")
-      .attr("transform", `translate(150,${0})`)
-      .call(yAxis)
-      .call(g => g.append("text")
-        .attr("x", 60)
-        .attr("y", yOffset - 10)
-        .attr("fill", "currentColor")
-        .attr("text-anchor", "end")
-        .text(modelName))
-      .selectAll(".tick text")
-      .style("fill", function (d) {
-        return showAsBlackBox ? "black" : "currentColor";
-      })
-      .text(function (d) {
-        // Replace text with a black box if showAsBlackBox is true
-        return showAsBlackBox ? "□" : d;
-      })
-      .on("mouseover", function (event, d) {
-        if (showAsBlackBox) {
-          tooltip1.html(d)
-            .style("opacity", .9)
-            .style("left", (event.pageX) + "px")
-            .style("top", (event.pageY - 28) + "px");
+      group.forEach(dataPoint => {
+        // Draw the vertical line with the bubble on top
+        bubbleGroup.append("line")
+          .attr("x1", xScale(dataPoint.x))
+          .attr("x2", xScale(dataPoint.x))
+          .attr("y1", yOffset + (fixedYOffsetStep / 2))
+          .attr("y2", yOffset)
+          .attr("stroke", colorScale(modelName))
+          .attr("stroke-width", 2);
 
-          var textLength = tooltip1.node().getBoundingClientRect().width;
-          var padding = 16;
-          tooltip1.style("width", (textLength + padding) + "px")
-            .style("height", "auto");
-        }
-      })
-      .on("mouseout", function (d) {
-        if (showAsBlackBox) {
-          tooltip1.transition()
-            .style("opacity", 0);
-        }
+        bubbleGroup.append("circle")
+          .attr("cx", xScale(dataPoint.x))
+          .attr("cy", yOffset)
+          .attr("r", 5)
+          .attr("fill", colorScale(modelName))
+          .on("mouseover", function (event, d) {
+            tooltip.style("visibility", "visible")
+              .html("Model: " + modelName + "<br>X: " + dataPoint.x + "<br>Y: " + dataPoint.y)
+              .style("top", (event.pageY - 10) + "px")
+              .style("left", (event.pageX + 10) + "px");
+          })
+          .on("mouseout", function () {
+            tooltip.style("visibility", "hidden");
+          });
       });
 
+      bubbleGroup.append("text")
+        .attr("transform", `translate(${xOffset},${yOffset})`) // Align with the y-axis
+        .attr("dy", "-0.72em") // Slight adjustment above the axis
+        .attr("dx", "1.52em") // Slight adjustment to the right of the axis
+        .style("font-size", "10px") // Smaller font size as per your description
+        .style("text-anchor", "start") // Text aligned to the start of the text string
+        .text(modelName);
+      
+    } else {
 
-    const yAxisLabel = lineGroup.append("g")
-      .attr("transform", "rotate(-90)")
-      .append("text")
-      .attr("x", 1 - yOffset + (data[index].intIndex * 100)) // Adjust the position as needed
-      .attr("y", 12)      // Adjust the position as needed
-      .attr("fill", colorBlack ? "black" : "white")
-      .attr("text-anchor", "end")
-      .attr("font-size", "12px")  // Set the font size as needed
-      .text("Frequency");
 
-    const xAxisLabel = lineGroup.append("g")
-      .append("text")
-      .attr("x", 500) // Adjust the position as needed
-      .attr("y", 80 + yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
-      .attr("fill", colorBlack ? "black" : "white")
-      .attr("text-anchor", "end")
-      .attr("font-size", "12px")  // Set the font size as needed
-      .text("Time (seconds)");
+      if (isHex(group)) {
+        const uniqueHexValues = [...new Set(group.map(d => d.y))].sort();
+        yScale = d3.scalePoint()
+          .domain(uniqueHexValues)
+          .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+      }
+      else if (isNumeric(group)) {
 
-    const xAxis = d3.axisBottom(xScale);
-    lineGroup
-      .append("g")
-      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
-      .attr("fill", colorBlack ? "black" : "white")
-      .call(xAxis);
-    // Store the lineGroup in the lineGroups object
-    lineGroups[modelName] = lineGroup;
+        //To do: merge Filip's change in here
+        yScale = d3.scaleLinear()
+          .domain([0, d3.max(group, d => d.y)])
+          .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
+      } else {
+        const categories = Array.from(new Set(group.map(d => d.y))).sort();
+        yScale = d3.scalePoint()
+          .domain(categories)
+          .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+          .padding(0.5);
+      }
+
+
+
+
+      // Create a new lineGroup for each model
+      colorBlack = data[index].colorBoolean;
+      const lineGroup = svg.append("g")
+        .style("display", "initial")
+        .attr("model", modelName);
+
+
+      if (group.length === 1) {
+        lineGroup
+          .append("circle")
+          .attr("cx", xScale(group[0].x))
+          .attr("cy", yScale(group[0].y[0]))
+          .attr("r", 5) // Adjust the radius as needed
+          .attr("fill", colorScale(modelName));
+      }
+      else {
+        const line = d3.line()
+          .x(d => xScale(d.x))
+          .y(d => yScale(d.y))
+          .curve(d3.curveStepAfter);
+
+
+        lineGroup
+          .append("path")
+          .datum(group)
+          .attr("class", "line")
+          .attr("d", line)
+          .attr("fill", "none")
+          .attr("stroke", colorScale(modelName))
+          .attr("stroke-width", lineThickness)
+          .attr("model", modelName)
+          .on("mouseover", function (event) {
+            updateTooltip(event, modelName, xScale, modelToCoordMap);
+          })
+          .on("mousemove", function (event) {
+            updateTooltip(event, modelName, xScale, modelToCoordMap);
+          })
+          .on("mouseout", function () {
+            tooltip.style("visibility", "hidden");
+          });
+      }
+
+      var tooltip1 = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("position", "absolute")
+        .style("text-align", "center")
+        .style("min-width", "120px") 
+        .style("min-height", "28px") 
+        .style("padding", "2px")
+        .style("font", "12px sans-serif")
+        .style("background", "white")
+        .style("border", "0px")
+        .style("border-radius", "8px")
+
+      const showAsBlackBox = group.some(d => d.showAsBlackBox);
+
+      // Create yAxis (with black box condition)
+      const yAxis = d3.axisLeft(yScale).ticks(5);
+      lineGroup
+        .append("g")
+        .attr("transform", `translate(150,${0})`)
+        .call(yAxis)
+        .call(g => g.append("text")
+          .attr("x", 60)
+          .attr("y", yOffset - 10)
+          .attr("fill", "currentColor")
+          .attr("text-anchor", "end")
+          .text(modelName))
+        .selectAll(".tick text")
+        .style("fill", function (d) {
+          return showAsBlackBox ? "black" : "currentColor";
+        })
+        .text(function (d) {
+          // Replace text with a black box if showAsBlackBox is true
+          return showAsBlackBox ? "□" : d;
+        })
+        .on("mouseover", function (event, d) {
+          if (showAsBlackBox) {
+            tooltip1.html(d)
+              .style("opacity", .9)
+              .style("left", (event.pageX) + "px")
+              .style("top", (event.pageY - 28) + "px");
+
+            var textLength = tooltip1.node().getBoundingClientRect().width;
+            var padding = 16;
+            tooltip1.style("width", (textLength + padding) + "px")
+              .style("height", "auto");
+          }
+        })
+        .on("mouseout", function (d) {
+          if (showAsBlackBox) {
+            tooltip1.transition()
+              .style("opacity", 0);
+          }
+        });
+
+
+      const yAxisLabel = lineGroup.append("g")
+        .attr("transform", "rotate(-90)")
+        .append("text")
+        .attr("x", 1 - yOffset + (data[index].intIndex * 100)) // Adjust the position as needed
+        .attr("y", 12)      // Adjust the position as needed
+        .attr("fill", colorBlack ? "black" : "white")
+        .attr("text-anchor", "end")
+        .attr("font-size", "12px")  // Set the font size as needed
+        .text("Frequency");
+
+      const xAxisLabel = lineGroup.append("g")
+        .append("text")
+        .attr("x", 500) // Adjust the position as needed
+        .attr("y", 80 + yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
+        .attr("fill", colorBlack ? "black" : "white")
+        .attr("text-anchor", "end")
+        .attr("font-size", "12px")  // Set the font size as needed
+        .text("Time (seconds)");
+
+      const xAxis = d3.axisBottom(xScale);
+      lineGroup
+        .append("g")
+        .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
+        .attr("fill", colorBlack ? "black" : "white")
+        .call(xAxis);
+      // Store the lineGroup in the lineGroups object
+      lineGroups[modelName] = lineGroup;
+    }
 
     // Increment the yOffset
     yOffset += fixedYOffsetStep;
