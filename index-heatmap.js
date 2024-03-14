@@ -75,9 +75,9 @@ function makeHeatmap() {
   console.log("max correlation = " + maxCorrelation);
 
   // Build color scale
-  var myColor = d3.scaleLinear()
-    .range(["white", "#69b3a2"])
-    .domain([minCorrelation, maxCorrelation]);
+  var myColor = d3.scaleSequential()
+    .domain([minCorrelation, maxCorrelation])
+    .interpolator(d3.interpolateBlues);
 
   // Set the dimensions and margins of the graph
   var margin = { top: 50, right: 250, bottom: 500, left: 100 },
