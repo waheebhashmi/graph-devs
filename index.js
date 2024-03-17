@@ -1,157 +1,436 @@
 
+
+
+
+let veryTopModel;
+let indentedChildren;
+let realIndentedChildren;
+let indentedChildrensTopNode;
+
+
 let data = new Array();
+var globalModel = JSON.parse(localStorage.getItem('globalModel')) || [];
+let xScaleDomainStart = null; // Initialize x-axis start to null
+let xScaleDomainEnd = null;   // Initialize x-axis end to null
+
+
+
+let currentYOffset = 100;
+const fixedYOffsetStep = 100; // Keep this as a constant
+
+window.addEventListener('message', function (event) {
+  updateCheckboxesBasedOnSelection(event.data);
+
+
+});
+
+
+
+
 function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
     const lines = this.result.split('\n');
-    for (let i = 1; i < lines.length - 1; i++) { //skip first line and last line
-      let valueArray = lines[i].split(",");
+    xScaleDomainStart = null; // Reset x-axis start
+    xScaleDomainEnd = null;   // Reset x-axis end
+    // Initialize flags
+    let commaFlag = false;
+    let semicolonFlag = false;
+
+    // Check the first line to determine the delimiter used
+    if (lines[0].includes(';')) {
+      semicolonFlag = true;
+    } else if (lines[0].includes(',')) {
+      commaFlag = true;
+    } for (let i = 1; i < lines.length - 1; i++) { //skip first line and last line
+      //split by comma when there are commas or ; when there are ;
+      //check in first line first first line
+      let delimiter = commaFlag ? ',' : (semicolonFlag ? ';' : undefined);
+      let valueArray = lines[i].split(delimiter);
       let time = valueArray[0]; //time
-      let model = valueArray[2]; //model
-      
-      //appends out or in depending on if the word before last comma had 'out' or not
-      let modifier = valueArray[valueArray.length - 2].toLowerCase().includes('out') ? 'out' : 'in';
-      model = model + ' ' + modifier; 
+      let model = valueArray[2].trim(); // Trim to remove any leading/trailing spaces
 
-      const linesSplitted = lines[i].trim().split('\n');
-      const results = [];
-      linesSplitted.forEach(line => {
-        const match = line.match(/(\b\d{1,3}\b)$/); 
-        if (match) {
-          results.push(match[1]); //frequency
-        }
+
+
+      // Use a regex to match 'out' or 'in' optionally followed by digits
+      let modifierMatch = valueArray[valueArray.length - 2].toLowerCase().match(/(out|in)\d*/);
+      let modifier = modifierMatch ? modifierMatch[0] : 'in'; // Default to '' if no match
+      model = model + ' ' + modifier;
+
+
+
+      let parsedValue;
+      let lastValue = valueArray[valueArray.length - 1].trim(); // Get the last value and trim spaces
+
+
+      if (/^\{.*\}$/.test(lastValue) || lastValue.includes("{")) {
+        parsedValue = lastValue; // for structured data
+      } else if (lastValue.includes('0x')) {
+        // If it contains a hex value, keep the hex value as a string
+        let hexMatch = lastValue.match(/0x[0-9A-Fa-f]+/);
+        parsedValue = hexMatch ? hexMatch[0] : '0x0'; // Keep hex as string, default to '0x0'
+      } else if (/^\d+$/.test(lastValue)) {
+        parsedValue = parseInt(lastValue, 10); // Parse as integer
+      } else if (!/\d/.test(lastValue)) {
+        parsedValue = lastValue; // Parse the string as is
+      } else {
+        // If it contains an integer along with anything else, parse only the integer
+        let intMatch = lastValue.match(/\d+/);
+        parsedValue = intMatch ? parseInt(intMatch[0], 10) : 0; // Default to 0 if no match
+      }
+
+
+
+
+
+      data.push({
+        x: parseFloat(time),
+        y: parsedValue, 
+        model: model,
+        intIndex: 0,
+        colorBoolean: true,
+        showAsBlackBox: /^\{.*\}$/.test(lastValue) || lastValue.includes("{")
+
+
       });
-      data.push({ x: parseFloat(time), y: results, model: model });
     }
-
   };
 
   reader.readAsText(file);
 }
+
+
 document.getElementById("myBtn").addEventListener("click", function () {
+
 
   var reader = new FileReader();
 
   reader.readAsText(document.querySelector('input').files[0]);
   readAndPrint(document.querySelector('input').files[0]);
-
   setTimeout(function () {
     makeGraph();
   }, 1000);
 });
 
 
+let hierarchyMap = {};
+
+function updateCheckboxesBasedOnSelection(selectedModel) {
+  const allCheckboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
+  let keys;
+  if (Array(globalModel)[0].top_model[selectedModel] != null) {
+    keys = Object.keys(Array(globalModel)[0].top_model[selectedModel]);
+  } else {
+    keys = [];
+  }
+
+
+
+  allCheckboxes.forEach(checkbox => {
+    const checkboxModelName = checkbox.id.split('-')[1];
+    let checkboxModelNameBeforeSpace = checkboxModelName.split(" ")[0];
+
+
+    if (checkboxModelName.startsWith(selectedModel)) {
+      checkbox.checked = true;
+    }
+    else if (selectedModel === "top_model") {
+      allCheckboxes.forEach(checkbox => checkbox.checked = true);
+    }
+    else if (keys.includes(checkboxModelNameBeforeSpace)) {
+      checkbox.checked = true;
+    }
+    else {
+      checkbox.checked = false;
+    }
+    toggleLineVisibility(checkboxModelName);
+  });
+}
+
+
 function makeGraph() {
   const svg = d3.select("svg"),
-      width = +svg.attr("width"),
-      height = +svg.attr("height");
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
   const tooltip = d3.select("#tooltip");
-  const xOffset = 50;
+  const xOffset = 150;
+
+
 
   const xScale = d3.scaleLinear()
-      .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
-      .range([xOffset, width - xOffset]);
+    .domain([
+      xScaleDomainStart !== null ? xScaleDomainStart : d3.min(data, d => d.x),
+      xScaleDomainEnd !== null ? xScaleDomainEnd : d3.max(data, d => d.x)
+    ])
+    .range([xOffset, width - xOffset]);
+
+
+
 
   // Group the data by model name
   const groupedData = d3.group(data, d => d.model);
+
+
+
+  const sortedGroupedData = new Map([...groupedData.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+
 
   // Give each model a unique colour
   const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
   const lineThickness = 3;
   let yOffset = 100;
 
+
   //set height of graph based on number of models
-  const numModels = groupedData.size;
-  const fixedYOffsetStep = 100; //space between graphs
-  const totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
+  const numModels = sortedGroupedData.size;
+  const fixedYOffsetStep = 100;
+  const minHeight = 400;
+  let totalGraphHeight = (numModels * fixedYOffsetStep) + 200;
   svg.attr("height", totalGraphHeight);
 
+
+
+
+  // Create checkboxes for each model
+  const checkboxesDiv = document.getElementById("checkboxes");
+  sortedGroupedData.forEach((group, modelName) => {
+    // Check if the checkbox already exists
+    if (document.getElementById(`checkbox-${modelName}`)) {
+      return; // Skip the creation process if the checkbox already exists
+    }
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.id = `checkbox-${modelName}`;
+    checkbox.checked = true; // Initially, all lines are visible
+    checkbox.addEventListener("change", () => toggleLineVisibility(modelName));
+
+    const label = document.createElement("label");
+    label.htmlFor = `checkbox-${modelName}`;
+    label.appendChild(document.createTextNode(modelName));
+
+
+    checkboxesDiv.appendChild(checkbox);
+    checkboxesDiv.appendChild(label);
+  });
+
+
+
+
+
+
+  function isNumeric(data) {
+    return data.every(d => !isNaN(parseFloat(d.y)) && isFinite(d.y));
+  }
   // Use to keep track of x, y coords for each model (each group)
   const modelToCoordMap = {};
 
-  groupedData.forEach((group, modelName) => {
-      const yScale = d3.scaleLinear()
-           .domain([0, d3.max(group, d => d.y)])
-           .range([yOffset + fixedYOffsetStep - 50, yOffset]);
 
+  const lineGroups = {};
+
+
+
+
+  function isHex(group) {
+    return group.some(d => typeof d.y === 'string' && d.y.startsWith('0x'));
+  }
+
+  sortedGroupedData.forEach((group, modelName) => {
+    const index = data.findIndex(d => d.model === modelName);
+    let yScale;
+    const maxY = d3.max(group, d => d.y);
+    let heightMultiplier = 1; // Default height multiplier
+    if (maxY > 100) {
+      heightMultiplier = 3;
+    } else if (maxY > 10) {
+      heightMultiplier = 2;
+    }
+
+
+	const yRange = maxY > 100 ? fixedYOffsetStep * 3 : fixedYOffsetStep;
+
+	let xPos; // This will hold the adjusted position
+
+    if (yRange > 100) {
+        // If yRange is greater than 100, adjust position accordingly
+        xPos = 1 - fixedYOffsetStep + (data[index].intIndex * 100 + 50);
+    } else {
+        // If yRange is not greater than 100, use the standard calculation
+        xPos = 1 - fixedYOffsetStep + (data[index].intIndex * 100);
+    }
+
+    if (isHex(group)) {
+      const uniqueHexValues = [...new Set(group.map(d => d.y))].sort();
+      yScale = d3.scalePoint()
+        .domain(uniqueHexValues)
+        .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+    }
+    else if (isNumeric(group)) {
+
+      //To do: merge Filip's change in here
+      yScale = d3.scaleLinear()
+        .domain([0, d3.max(group, d => d.y)])
+        .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
+    } else {
+      const categories = Array.from(new Set(group.map(d => d.y))).sort();
+      yScale = d3.scalePoint()
+        .domain(categories)
+        .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+        .padding(0.5);
+    }
+
+
+
+
+    // Create a new lineGroup for each model
+    colorBlack = data[index].colorBoolean;
+    const lineGroup = svg.append("g")
+      .style("display", "initial")
+      .attr("model", modelName);
+
+
+    if (group.length === 1) {
+      lineGroup
+        .append("circle")
+        .attr("cx", xScale(group[0].x))
+        .attr("cy", yScale(group[0].y[0]))
+        .attr("r", 5) // Adjust the radius as needed
+        .attr("fill", colorScale(modelName));
+    }
+    else {
       const line = d3.line()
-          .x(d => xScale(d.x))
-          .y(d => yScale(d.y))
-          .curve(d3.curveStepAfter);
+        .x(d => xScale(d.x))
+        .y(d => yScale(d.y))
+        .curve(d3.curveStepAfter);
 
-      modelToCoordMap[modelName] = createCoordMapping(group);
 
-      svg.append("path")
-          .datum(group)
-          .attr("class", "line")
-          .attr("d", line)
-          .attr("fill", "none")
-          .attr("stroke", colorScale(modelName))
-          .attr("stroke-width", lineThickness)
-          .on("mouseover", function (event) {
-              updateTooltip(event, modelName, xScale, modelToCoordMap);
-          })
-          .on("mousemove", function (event) {
-              updateTooltip(event, modelName, xScale, modelToCoordMap);
-          })
-          .on("mouseout", function () {
-              tooltip.style("visibility", "hidden");
-          });
+      lineGroup
+        .append("path")
+        .datum(group)
+        .attr("class", "line")
+        .attr("d", line)
+        .attr("fill", "none")
+        .attr("stroke", colorScale(modelName))
+        .attr("stroke-width", lineThickness)
+        .attr("model", modelName)
+        .on("mouseover", function (event) {
+          updateTooltip(event, modelName, xScale, modelToCoordMap);
+        })
+        .on("mousemove", function (event) {
+          updateTooltip(event, modelName, xScale, modelToCoordMap);
+        })
+        .on("mouseout", function () {
+          tooltip.style("visibility", "hidden");
+        });
+    }
 
-          //5 ticks for each y axis, Add yAxis' and their respective model names
-          const yAxis = d3.axisLeft(yScale).ticks(5);
-          const yGroup = svg.append("g")
-            .attr("transform", `translate(50,${0})`)
-            yGroup.call(yAxis)
-            yGroup.call(g => g.append("text")
-                .attr("x", 45)
-                .attr("y", yOffset - 10)
-                .attr("fill", "currentColor")
-                .attr("text-anchor", "end")
-                .text(modelName));
+    var tooltip1 = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("position", "absolute")
+      .style("text-align", "center")
+      .style("min-width", "120px") 
+      .style("min-height", "28px") 
+      .style("padding", "2px")
+      .style("font", "12px sans-serif")
+      .style("background", "white")
+      .style("border", "0px")
+      .style("border-radius", "8px")
 
-      //With each model, increment the offset for the next Y axis
-      yOffset += fixedYOffsetStep;
+    const showAsBlackBox = group.some(d => d.showAsBlackBox);
+
+    // Create yAxis (with black box condition)
+    const yAxis = d3.axisLeft(yScale).ticks(5);
+    lineGroup
+      .append("g")
+      .attr("transform", `translate(150,${0})`)
+      .call(yAxis)
+      .call(g => g.append("text")
+        .attr("x", 60)
+        .attr("y", yRange - 10)
+        .attr("fill", "currentColor")
+        .attr("text-anchor", "end")
+        .text(modelName))
+      .selectAll(".tick text")
+      .style("fill", function (d) {
+        return showAsBlackBox ? "black" : "currentColor";
+      })
+      .text(function (d) {
+        // Replace text with a black box if showAsBlackBox is true
+        return showAsBlackBox ? "□" : d;
+      })
+      .on("mouseover", function (event, d) {
+        if (showAsBlackBox) {
+          tooltip1.html(d)
+            .style("opacity", .9)
+            .style("left", (event.pageX) + "px")
+            .style("top", (event.pageY - 28) + "px");
+
+          var textLength = tooltip1.node().getBoundingClientRect().width;
+          var padding = 16;
+          tooltip1.style("width", (textLength + padding) + "px")
+            .style("height", "auto");
+        }
+      })
+      .on("mouseout", function (d) {
+        if (showAsBlackBox) {
+          tooltip1.transition()
+            .style("opacity", 0);
+        }
+      });
+
+
+    const yAxisLabel = lineGroup.append("g")
+      .attr("transform", "rotate(-90)")
+      .append("text")
+      .attr("x", 1 - fixedYOffsetStep + (data[index].intIndex * 100)) // Adjust the position as needed
+      .attr("y", 12)      // Adjust the position as needed
+      .attr("fill", colorBlack ? "black" : "white")
+      .attr("text-anchor", "end")
+      .attr("font-size", "12px")  // Set the font size as needed
+      .text("Frequency");
+
+    const xAxisLabel = lineGroup.append("g")
+      .append("text")
+      .attr("x", 500) // Adjust the position as needed
+      .attr("y", 80 + yRange - (data[index].intIndex * 100))  // Adjust the position as needed
+      .attr("fill", colorBlack ? "black" : "white")
+      .attr("text-anchor", "end")
+      .attr("font-size", "12px")  // Set the font size as needed
+      .text("Time (seconds)");
+
+    const xAxis = d3.axisBottom(xScale);
+    lineGroup
+      .append("g")
+      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
+      .attr("fill", colorBlack ? "black" : "white")
+      .call(xAxis);
+    // Store the lineGroup in the lineGroups object
+    lineGroups[modelName] = lineGroup;
+
+    // Increment the yOffset
+    yOffset += fixedYOffsetStep;
+
+
+    modelToCoordMap[modelName] = createCoordMapping(group);
   });
 
   //Create X axis
   svg.append("g")
-      .attr("transform", `translate(0,${height - 50})`)
-      .call(d3.axisBottom(xScale));
+    .attr("transform", `translate(0,${height - 50})`)
+    .call(d3.axisBottom(xScale));
 
-  // // Legend
-  // let yLegendSection = 1;
-  // const legend = svg.append('g')
-  //     .attr('class', 'legend');
-  //
-  // groupedData.forEach((group, modelName) => {
-  //     const legendSection = legend.append('g')
-  //         .attr('transform', `translate(0, ${yLegendSection})`);
-  //
-  //     legendSection.append('rect')
-  //         .attr('x', 780)
-  //         .attr('y', 0)
-  //         .attr('width', 20)
-  //         .attr('height', 20)
-  //         .attr('fill', colorScale(modelName));
-  //
-  //     //model name
-  //     //legendSection.append('text')
-  //         .attr('x', 800 + 15)
-  //         .attr('y', 15)
-  //         .text(modelName);
-  //
-  //     yLegendSection += 25;
-  // });
-  
+
+
+
   function updateTooltip(event, modelName, xScale, modelToCoordMap) {
-      const xValue = xScale.invert(event.offsetX);
-      tooltip.style("visibility", "visible")
-          .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
-          .style("top", (event.pageY - 10) + "px")
-          .style("left", (event.pageX + 10) + "px");
+    const xValue = xScale.invert(event.offsetX);
+    tooltip.style("visibility", "visible")
+      .html("Model: " + modelName + "<br>X: " + xValue.toFixed(2) + "<br>Y: " + getYCoordFromX(xValue, modelToCoordMap[modelName]))
+      .style("top", (event.pageY - 10) + "px")
+      .style("left", (event.pageX + 10) + "px");
   }
 }
+
+
 
 // Makes a map which we can reference to find the Y value of a model given its X coordinate
 // Since we're piece-wise we use this later by using the largest x value in the map less
@@ -159,7 +438,6 @@ function makeGraph() {
 function createCoordMapping(groupData) {
   const map = {};
   map[0] = 0;
-
   for (let i = 0; i < groupData.length; i++) {
     const xValue = groupData[i].x;
     const yValue = groupData[i].y[0];
@@ -168,22 +446,61 @@ function createCoordMapping(groupData) {
       map[xValue] = yValue;
     }
   }
-
-  console.log(groupData);
-  console.log(map);
-
   return map;
 }
 
+
+
+
+
+
+
+
 function getYCoordFromX(x, mapping) {
   let closestX = 0;
-
   for (const coordX in mapping) {
     const coordXNum = parseFloat(coordX); // Convert the key to a number
     if (coordXNum <= x && coordXNum >= closestX) {
       closestX = coordXNum;
     }
   }
-  
   return mapping[closestX];
 }
+
+
+
+
+function toggleLineVisibility(modelName) {
+  const checkbox = document.getElementById(`checkbox-${modelName}`);
+  const lineGroup = d3.select(`g[model="${modelName}"]`);
+
+  if (checkbox.checked) {
+    lineGroup.style("display", "initial");
+  } else {
+    lineGroup.style("display", "none");
+  }
+
+  //TODO: this isn't working, also do it dynamically instead of with a hardcoded yoffset
+  // Shift the visible lines up
+  const visibleLines = document.querySelectorAll(".line[style='display: initial;']");
+  let yOffset = 100;
+
+
+  visibleLines.forEach(line => {
+    const parentGroup = line.parentNode;
+    parentGroup.attr("transform", `translate(0,${yOffset})`);
+    yOffset += fixedYOffsetStep;
+  });
+}
+document.getElementById("updateRange").addEventListener("click", function () {
+  const xStart = parseFloat(document.getElementById("xStart").value);
+  const xEnd = parseFloat(document.getElementById("xEnd").value);
+  if (!isNaN(xStart) && !isNaN(xEnd) && xStart < xEnd) {
+    xScaleDomainStart = xStart;
+    xScaleDomainEnd = xEnd;
+    d3.select("svg").selectAll("*").remove(); // Clear SVG content
+    makeGraph(); // Redraw graph with new x-axis range
+  } else {
+    alert("Invalid x-axis range.");
+  }
+});
