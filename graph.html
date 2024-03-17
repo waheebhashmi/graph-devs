@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8" />
-  <title>CELL DEVS SIMULATION AND ANALYSIS</title>
+  <title>DEVS SIMULATION AND ANALYSIS</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -20,14 +19,23 @@
       font-size: 24px;
     }
 
-    #content {
-      max-width: 1000px;
+    #container {
       margin: 20px auto;
-      padding: 20px;
+      display: grid;
+      grid-template-columns: 3fr 1fr; /* 3:1 ratio, adjust as needed */
+      gap: 20px; /* space between columns */
       background-color: white;
       border-radius: 5px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+  }
+    #content {
+      flex: 1; /* Take up available space */
+      display: flex;
+      flex-direction: column; /* Align children vertically */
+      flex-wrap: wrap; /* Allow wrapping if necessary */
     }
+
 
     #tooltip {
       position: absolute;
@@ -50,30 +58,47 @@
       background-color: #007BFF;
       color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 8px 10px; /* Reduced left and right padding */
+      font-size: 14px;
       border-radius: 5px;
       cursor: pointer;
+      width: 200px; /* Adjust width as needed, or use 'auto' for automatic width based on content */
+      display: inline-block; /* This makes the button only as wide as its content */
     }
 
     button#myBtn:hover {
       background-color: #0056b3;
+    }
+
+    svg {
+      max-width: 100%;
+      border: 1px solid #ddd; /* Optional, for visualizing the SVG boundaries */
     }
   </style>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 
 <body>
-  <div id="header">CELL DEVS SIMULATION AND ANALYSIS</div>
-  <div id="content">
-    <div id="tooltip"></div>
-    <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
-    <input type="file" id="fileInput">
-    <button id="myBtn">Generate Graph</button>
-    <svg width="1000" height="1200" id="line-char">
-    	<text x="500" y="1200" text anchor="middle">Time (seconds)</text>text>
+  <div id="header">DEVS SIMULATION GRAPH AND ANALYSIS</div>
+  <div id="container">
+    <div id="content">
+      <div id="tooltip"></div>
+      <label for="fileInput">Choose a file to generate a graph (.csv supported)</label>
+      <input type="file" id="fileInput">
+      <button id="myBtn">Generate Graph</button>
+      <div>
+      <label for="xStart">X-Axis Start:</label>
+      <input id="xStart" type="number" value="0" style="margin-left: 10px;">
+      <label for="xEnd">X-Axis End:</label>
+      <input id="xEnd" type="number" value="100" style="margin-left: 10px;">
+      <button id="updateRange">Update Range</button>
+      </div>
+      <svg width="1000" height="5000" id="line-chart">
 
-    	<text x="20" y="590" transform="rotate(-90,20,600)" text-anchor="middle">Frequency</text>text>
-    </svg>
+      </svg>
+    </div>
+    <div id="checkboxes">
+    </div>
   </div>
   <script src="index.js"></script>
 </body>
