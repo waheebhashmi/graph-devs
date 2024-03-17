@@ -381,7 +381,7 @@ function makeGraph() {
     const yAxisLabel = lineGroup.append("g")
       .attr("transform", "rotate(-90)")
       .append("text")
-      .attr("x", 1 - fixedYOffsetStep + (data[index].intIndex * 100)) // Adjust the position as needed
+      .attr("x", 1 - yOffset + (data[index].intIndex * 100)) // Adjust the position as needed
       .attr("y", 12)      // Adjust the position as needed
       .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
@@ -391,7 +391,7 @@ function makeGraph() {
     const xAxisLabel = lineGroup.append("g")
       .append("text")
       .attr("x", 500) // Adjust the position as needed
-      .attr("y", 80 + yRange - (data[index].intIndex * 100))  // Adjust the position as needed
+      .attr("y", 80 + yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
       .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .attr("font-size", "12px")  // Set the font size as needed
@@ -400,14 +400,14 @@ function makeGraph() {
     const xAxis = d3.axisBottom(xScale);
     lineGroup
       .append("g")
-      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
+      .attr("transform", `translate(0,${yOffset + yRange - data[index].intIndex - 50})`)
       .attr("fill", colorBlack ? "black" : "white")
       .call(xAxis);
     // Store the lineGroup in the lineGroups object
     lineGroups[modelName] = lineGroup;
 
     // Increment the yOffset
-    yOffset += fixedYOffsetStep;
+    yOffset += yRange;
 
 
     modelToCoordMap[modelName] = createCoordMapping(group);
