@@ -345,7 +345,7 @@ function makeGraph() {
       .call(yAxis)
       .call(g => g.append("text")
         .attr("x", 60)
-        .attr("y", yRange - 10)
+        .attr("y", yOffset - 10)
         .attr("fill", "currentColor")
         .attr("text-anchor", "end")
         .text(modelName))
@@ -391,7 +391,7 @@ function makeGraph() {
     const xAxisLabel = lineGroup.append("g")
       .append("text")
       .attr("x", 500) // Adjust the position as needed
-      .attr("y", 80 + yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
+      .attr("y", maxY < 100 ? 80 + yOffset - (data[index].intIndex * 100) : 80 + yOffset + 200 - (data[index].intIndex * 100))  // Adjust the position as needed
       .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .attr("font-size", "12px")  // Set the font size as needed
