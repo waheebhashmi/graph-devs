@@ -15,10 +15,18 @@ let xScaleDomainEnd = null;   // Initialize x-axis end to null
 
 
 
+
+for (let i = 0; i < globalModel.length; i++) {
+  console.log(globalModel.top_model[i]);
+}
+
+
+
 let currentYOffset = 100;
 const fixedYOffsetStep = 100; // Keep this as a constant
 
 window.addEventListener('message', function (event) {
+  console.log('Received data:', event.data);
   updateCheckboxesBasedOnSelection(event.data);
 
 
@@ -33,68 +41,101 @@ function readAndPrint(file) {
     const lines = this.result.split('\n');
     xScaleDomainStart = null; // Reset x-axis start
     xScaleDomainEnd = null;   // Reset x-axis end
-    // Initialize flags
-    let commaFlag = false;
-    let semicolonFlag = false;
 
-    // Check the first line to determine the delimiter used
-    if (lines[0].includes(';')) {
-      semicolonFlag = true;
-    } else if (lines[0].includes(',')) {
-      commaFlag = true;
-    } for (let i = 1; i < lines.length - 1; i++) { //skip first line and last line
-      //split by comma when there are commas or ; when there are ;
-      //check in first line first first line
-      let delimiter = commaFlag ? ',' : (semicolonFlag ? ';' : undefined);
+    for (let i = 1; i < lines.length - 1; i++) {
+      if (lines[i].trim() === '') continue;
+
+      let delimiter = lines[0].includes(';') ? ';' : ',';
       let valueArray = lines[i].split(delimiter);
       let time = valueArray[0]; //time
-      let model = valueArray[2].trim(); // Trim to remove any leading/trailing spaces
-
-
-
-      // Use a regex to match 'out' or 'in' optionally followed by digits
+      let model = valueArray.length > 2 ? valueArray[2].trim() : ""; // Use "DefaultModel" or any other default value
+      if(model != ""){
       let modifierMatch = valueArray[valueArray.length - 2].toLowerCase().match(/(out|in)\d*/);
-      let modifier = modifierMatch ? modifierMatch[0] : 'in'; // Default to '' if no match
-      model = model + ' ' + modifier;
-
-
-
-      let parsedValue;
+    let modifier = modifierMatch ? modifierMatch[0] : 'in'; // Default to '' if no match
+    model = model + ' ' + modifier;
       let lastValue = valueArray[valueArray.length - 1].trim(); // Get the last value and trim spaces
-
-
-      if (/^\{.*\}$/.test(lastValue) || lastValue.includes("{")) {
-        parsedValue = lastValue; // for structured data
-      } else if (lastValue.includes('0x')) {
-        // If it contains a hex value, keep the hex value as a string
-        let hexMatch = lastValue.match(/0x[0-9A-Fa-f]+/);
-        parsedValue = hexMatch ? hexMatch[0] : '0x0'; // Keep hex as string, default to '0x0'
-      } else if (/^\d+$/.test(lastValue)) {
-        parsedValue = parseInt(lastValue, 10); // Parse as integer
-      } else if (!/\d/.test(lastValue)) {
-        parsedValue = lastValue; // Parse the string as is
-      } else {
-        // If it contains an integer along with anything else, parse only the integer
-        let intMatch = lastValue.match(/\d+/);
-        parsedValue = intMatch ? parseInt(intMatch[0], 10) : 0; // Default to 0 if no match
-      }
-
-
-
-
-
-      data.push({
-        x: parseFloat(time),
-        y: parsedValue, 
-        model: model,
-        intIndex: 0,
-        colorBoolean: true,
-        showAsBlackBox: /^\{.*\}$/.test(lastValue) || lastValue.includes("{")
-
-
-      });
+      if (lastValue === '') {
+        lastValue = 0; // Assign a default value if lastValue is empty
+        continue;
     }
+      // Structured data handling
+      if (lastValue.includes('{')) {
+        let prefixMatch = lastValue.match(/^(.*?): \{/);
+        let prefix = prefixMatch ? prefixMatch[1] : ""; // Extract prefix before curly braces
+
+        let structContent = lastValue.slice(lastValue.indexOf('{') + 1, -1); // Extract content inside curly braces
+        let entries = structContent.split(',').map(entry => entry.trim());
+        entries.forEach(entry => {
+          let [key, valStr] = entry.split(':').map(s => s.trim());
+          let entryModel = `${model} (${prefix} -> ${key})`;
+          console.log([key, valStr]);
+          // Check if valStr has content
+          if (valStr) {
+            // Process each value in the struct
+            let vals = valStr.split(',').map(val => {
+              val = val.replace(/[{}]/g, ''); // Ensure no curly braces
+
+              if (val.includes('0x')) {
+                return val; // Keep hex value as is
+              } else if (!isNaN(parseInt(val))) {
+                return parseInt(val, 10); // Parse integer
+              } else {
+                return val.trim(); // Keep string as is
+              }
+            });
+
+            vals.forEach(val => {
+              data.push({
+                x: parseFloat(time),
+                y: val,
+                model: entryModel,
+                intIndex: 0,
+                colorBoolean: true,
+                showAsBlackBox: false
+                // showAsBlackBox: /^\{.*\}$/.test(lastValue) || lastValue.includes("{")
+              });
+            });
+          }
+        });
+      } else {
+        //Data handling with support for hex, integer, and strings
+        let parsedValue;
+        if (lastValue.includes('0x')) {
+          parsedValue = lastValue;
+        } else if (/^\d+$/.test(lastValue)) {
+          parsedValue = parseInt(lastValue, 10); // Parse as integer
+        } else {
+          //Check if the string contains a number anywhere
+          let includesNumber = /\d/.test(lastValue);
+          if (includesNumber) {
+            // Then, check if it strictly ends with a number
+            let endsWithNumber = lastValue.match(/(\d+)$/);
+            if (endsWithNumber && lastValue === endsWithNumber[0]) {
+              // If it strictly ends with a number, parse that number
+              parsedValue = parseInt(endsWithNumber[1], 10);
+            } else {
+              parsedValue = lastValue;
+            }
+          } else {
+            //If no digits are present in the string at all, keep it as is
+            parsedValue = lastValue.trim();
+            console.log(parsedValue.toString().length);
+          }
+        }
+
+        data.push({
+          x: parseFloat(time),
+          y: parsedValue,
+          model: model,
+          intIndex: 0,
+          colorBoolean: true,
+          showAsBlackBox: parsedValue.toString().trim().length > 25
+        });
+      }
+    }
+    console.log(data); // Log the data for verification
   };
+}
 
   reader.readAsText(file);
 }
@@ -117,10 +158,13 @@ let hierarchyMap = {};
 
 function updateCheckboxesBasedOnSelection(selectedModel) {
   const allCheckboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
+  console.log("SDSDS: " + Array(globalModel)[0].top_model[selectedModel]);
   let keys;
   if (Array(globalModel)[0].top_model[selectedModel] != null) {
     keys = Object.keys(Array(globalModel)[0].top_model[selectedModel]);
+    console.log("keys: " + keys);
   } else {
+    console.log("NTOHING");
     keys = [];
   }
 
@@ -129,6 +173,8 @@ function updateCheckboxesBasedOnSelection(selectedModel) {
   allCheckboxes.forEach(checkbox => {
     const checkboxModelName = checkbox.id.split('-')[1];
     let checkboxModelNameBeforeSpace = checkboxModelName.split(" ")[0];
+    console.log(checkboxModelName);
+    console.log(selectedModel);
 
 
     if (checkboxModelName.startsWith(selectedModel)) {
@@ -184,7 +230,7 @@ function makeGraph() {
   const fixedYOffsetStep = 100;
   const minHeight = 400;
   let totalGraphHeight = Math.max(numModels * fixedYOffsetStep, minHeight) * (d3.max(data, d => d.y) > 100 ? 4 : 1);
-  svg.attr("height", totalGraphHeight);
+  svg.attr("height", 1000000);
 
 
 
@@ -240,32 +286,27 @@ function makeGraph() {
     } else if (maxY > 10) {
       heightMultiplier = 2;
     }
-
-
-
+    const yRange = maxY > 100 ? fixedYOffsetStep * 3 : fixedYOffsetStep;
 
     if (isHex(group)) {
       const uniqueHexValues = [...new Set(group.map(d => d.y))].sort();
       yScale = d3.scalePoint()
         .domain(uniqueHexValues)
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+        .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
     }
-    else if (isNumeric(group)) {
-
-      //To do: merge Filip's change in here
+    else   if (isNumeric(group)) {
       yScale = d3.scaleLinear()
-        .domain([0, d3.max(group, d => d.y)])
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
+      .domain([0, d3.max(group, d => d.y)])
+      .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)]);
     } else {
       const categories = Array.from(new Set(group.map(d => d.y))).sort();
       yScale = d3.scalePoint()
         .domain(categories)
-        .range([yOffset + fixedYOffsetStep - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
+        .range([yOffset + yRange - (data[index].intIndex * 100) - 50, yOffset - (data[index].intIndex * 100)])
         .padding(0.5);
     }
 
-
-
+  
 
     // Create a new lineGroup for each model
     colorBlack = data[index].colorBoolean;
@@ -274,12 +315,12 @@ function makeGraph() {
       .attr("model", modelName);
 
 
-    if (group.length === 1) {
+if (group.length === 1 || group.every((element) => element.x === group[0].x)) {
       lineGroup
         .append("circle")
         .attr("cx", xScale(group[0].x))
-        .attr("cy", yScale(group[0].y[0]))
-        .attr("r", 5) // Adjust the radius as needed
+        .attr("cy", yScale(group[0].y))
+        .attr("r", 5)
         .attr("fill", colorScale(modelName));
     }
     else {
@@ -311,16 +352,17 @@ function makeGraph() {
 
     var tooltip1 = d3.select("body").append("div")
       .attr("class", "tooltip")
+      .style("opacity", 0)
       .style("position", "absolute")
       .style("text-align", "center")
-      .style("min-width", "120px") 
-      .style("min-height", "28px") 
+      .style("min-width", "120px") // Set a minimum width
+      .style("min-height", "28px") // Set a minimum height
       .style("padding", "2px")
       .style("font", "12px sans-serif")
-      .style("background", "white")
+      .style("background", "lightsteelblue")
       .style("border", "0px")
       .style("border-radius", "8px")
-
+      .style("pointer-events", "none");
     const showAsBlackBox = group.some(d => d.showAsBlackBox);
 
     // Create yAxis (with black box condition)
@@ -330,7 +372,7 @@ function makeGraph() {
       .attr("transform", `translate(150,${0})`)
       .call(yAxis)
       .call(g => g.append("text")
-        .attr("x", 60)
+        .attr("x", 100)
         .attr("y", yOffset - 10)
         .attr("fill", "currentColor")
         .attr("text-anchor", "end")
@@ -377,7 +419,7 @@ function makeGraph() {
     const xAxisLabel = lineGroup.append("g")
       .append("text")
       .attr("x", 500) // Adjust the position as needed
-      .attr("y", 80 + yOffset - (data[index].intIndex * 100))  // Adjust the position as needed
+      .attr("y", maxY < 100 ? 80 + yOffset - (data[index].intIndex * 100) : 80 + yOffset + 200 - (data[index].intIndex * 100))  // Adjust the position as needed
       .attr("fill", colorBlack ? "black" : "white")
       .attr("text-anchor", "end")
       .attr("font-size", "12px")  // Set the font size as needed
@@ -386,23 +428,23 @@ function makeGraph() {
     const xAxis = d3.axisBottom(xScale);
     lineGroup
       .append("g")
-      .attr("transform", `translate(0,${yOffset + fixedYOffsetStep - data[index].intIndex - 50})`)
+      .attr("transform", `translate(0,${yOffset + yRange - data[index].intIndex - 50})`)
       .attr("fill", colorBlack ? "black" : "white")
       .call(xAxis);
     // Store the lineGroup in the lineGroups object
     lineGroups[modelName] = lineGroup;
 
     // Increment the yOffset
-    yOffset += fixedYOffsetStep;
+    yOffset += yRange;
 
 
     modelToCoordMap[modelName] = createCoordMapping(group);
   });
 
-  //Create X axis
-  svg.append("g")
-    .attr("transform", `translate(0,${height - 50})`)
-    .call(d3.axisBottom(xScale));
+  // //Create X axis
+  // svg.append("g")
+  //   .attr("transform", `translate(0,${height - 50})`)
+  //   .call(d3.axisBottom(xScale));
 
 
 
