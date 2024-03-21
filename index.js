@@ -484,7 +484,7 @@ function createCoordMapping(groupData) {
   map[0] = 0;
   for (let i = 0; i < groupData.length; i++) {
     const xValue = groupData[i].x;
-    const yValue = groupData[i].y[0];
+    const yValue = groupData[i].y;
 
     if (yValue !== undefined) {
       map[xValue] = yValue;
