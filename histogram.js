@@ -13,26 +13,103 @@ function readAndPrint(file) {
   const reader = new FileReader();
   reader.onload = function () {
     const lines = this.result.split('\n');
+    xScaleDomainStart = null; // Reset x-axis start
+    xScaleDomainEnd = null;   // Reset x-axis end
+
     for (let i = 1; i < lines.length - 1; i++) {
-      let valueArray = lines[i].split(",");
-      let time = valueArray[0]; // time
-      let model = valueArray[2]; // model
+      if (lines[i].trim() === '') continue;
 
-      // appends out or in depending on if the word before last comma had 'out' or not
-      let modifier = valueArray[valueArray.length - 2].toLowerCase().includes('out') ? 'out' : 'in';
+      let delimiter = lines[0].includes(';') ? ';' : ',';
+      let valueArray = lines[i].split(delimiter);
+      let time = valueArray[0]; //time
+      let model = valueArray.length > 2 ? valueArray[2].trim() : ""; // Use "DefaultModel" or any other default value
+      if(model != ""){
+      let modifierMatch = valueArray[valueArray.length - 2].toLowerCase().match(/(out|in)\d*/);
+      let modifier = modifierMatch ? modifierMatch[0] : 'in'; // Default to '' if no match
       model = model + ' ' + modifier;
+        let lastValue = valueArray[valueArray.length - 1].trim(); // Get the last value and trim spaces
+        if (lastValue === '') {
+          lastValue = 0; // Assign a default value if lastValue is empty
+          continue;
+      }
+        // Structured data handling
+        if (lastValue.includes('{')) {
+          let prefixMatch = lastValue.match(/^(.*?): \{/);
+          let prefix = prefixMatch ? prefixMatch[1] : ""; // Extract prefix before curly braces
 
-      const linesSplitted = lines[i].trim().split('\n');
-      const results = [];
-      linesSplitted.forEach(line => {
-        const match = line.match(/(\b\d{1,3}\b)$/);
-        if (match) {
-          results.push(match[1]); // frequency
+          let structContent = lastValue.slice(lastValue.indexOf('{') + 1, -1); // Extract content inside curly braces
+          let entries = structContent.split(',').map(entry => entry.trim());
+          entries.forEach(entry => {
+            let [key, valStr] = entry.split(':').map(s => s.trim());
+            let entryModel = `${model} (${prefix} -> ${key})`;
+            console.log([key, valStr]);
+            // Check if valStr has content
+            if (valStr) {
+              // Process each value in the struct
+              let vals = valStr.split(',').map(val => {
+                val = val.replace(/[{}]/g, ''); // Ensure no curly braces
+
+                if (val.includes('0x')) {
+                  return val; // Keep hex value as is
+                } else if (!isNaN(parseInt(val))) {
+                  return parseInt(val, 10); // Parse integer
+                } else {
+                  return val.trim(); // Keep string as is
+                }
+              });
+
+              vals.forEach(val => {
+                data.push({
+                  x: parseFloat(time),
+                  y: val,
+                  model: entryModel,
+                  intIndex: 0,
+                  colorBoolean: true,
+                  showAsBlackBox: false
+                  // showAsBlackBox: /^\{.*\}$/.test(lastValue) || lastValue.includes("{")
+                });
+              });
+            }
+          });
+        } else {
+          //Data handling with support for hex, integer, and strings
+          let parsedValue;
+          if (lastValue.includes('0x')) {
+            parsedValue = lastValue;
+          } else if (/^\d+$/.test(lastValue)) {
+            parsedValue = parseInt(lastValue, 10); // Parse as integer
+          } else {
+            //Check if the string contains a number anywhere
+            let includesNumber = /\d/.test(lastValue);
+            if (includesNumber) {
+              // Then, check if it strictly ends with a number
+              let endsWithNumber = lastValue.match(/(\d+)$/);
+              if (endsWithNumber && lastValue === endsWithNumber[0]) {
+                // If it strictly ends with a number, parse that number
+                parsedValue = parseInt(endsWithNumber[1], 10);
+              } else {
+                parsedValue = lastValue;
+              }
+            } else {
+              //If no digits are present in the string at all, keep it as is
+              parsedValue = lastValue.trim();
+              console.log(parsedValue.toString().length);
+            }
+          }
+
+          data.push({
+            x: parseFloat(time),
+            y: parsedValue,
+            model: model,
+            intIndex: 0,
+            colorBoolean: true,
+            showAsBlackBox: parsedValue.toString().trim().length > 25
+          });
         }
-      });
-      data.push({ x: parseFloat(time), y: results, model: model });
-    }
-  };
+      }
+      console.log(data); // Log the data for verification
+    };
+  }
 
   reader.readAsText(file);
 }
@@ -103,10 +180,18 @@ function makeHistograms() {
   
     var bins;
     if (uniqueValues.length <= 7) { // Threshold for small range data
-      // Create bins for each unique value plus one extra for any values outside the range
-      bins = uniqueValues.map((value, i, arr) => {
-        var bin = { x0: value, x1: i < arr.length - 1 ? arr[i + 1] : value + 1, length: values.filter(v => v === value).length };
-        return bin;
+      // Calculate the bin width based on the overall range, divided by the number of unique values.
+      var range = d3.max(values) - d3.min(values);
+      var binWidth = range / uniqueValues.length;
+      
+      // Generate bins using the calculated bin width
+      bins = d3.range(d3.min(values), d3.max(values) + binWidth, binWidth).map((start, i, arr) => {
+        var end = i < arr.length - 1 ? arr[i + 1] : start + binWidth;
+        return { 
+          x0: start, 
+          x1: end, 
+          length: values.filter(v => v >= start && v < end).length
+        };
       });
     } else {
       var iqr = d3.quantile(values, 0.75) - d3.quantile(values, 0.25);
@@ -116,6 +201,8 @@ function makeHistograms() {
       
       numberOfBins = Math.max(numberOfBins, minBins);
       var thresholds = d3.range(d3.min(values), d3.max(values) + binWidth, binWidth);
+
+      console.log("Thresholds for ", model, " are ", thresholds);
   
       // Features of the histogram
       var histogram = d3.histogram()
@@ -329,8 +416,20 @@ function createCoordMapping(groupData) {
 
   for (let i = 0; i < groupData.length; i++) {
     const xValue = groupData[i].x;
-    const yValue = groupData[i].y[0];
+    let yValue = groupData[i].y;
 
+    // Check if yValue is a string and try to extract a number from it
+    if (typeof yValue === 'string') {
+      const match = yValue.match(/:.*?(\d+(\.\d+)?)$/); // Matches a colon followed by any characters and then a number at the end of the string
+      if (match && match[1]) {
+        yValue = match[1].includes('.') ? parseFloat(match[1]) : parseInt(match[1], 10); // Parse the number as float if it contains a dot, otherwise as int
+      } else {
+        // Handle the case where no number is found or yValue is not in expected format
+        yValue = 0; // Default value or any other fallback logic
+      }
+    }
+
+    // Update the map with the processed yValue
     if (yValue !== undefined) {
       map[xValue] = yValue;
     }
@@ -357,6 +456,8 @@ function gcd(a, b) {
 }
 
 function findGCDOfTimeDifferences(data, decimalPlaces = 4) {
+  const MIN_GCD_THRESHOLD = 0.01; // Define a minimum GCD threshold to avoid too small GCDs
+
   const timeDifferences = [];
 
   // Calculate differences between consecutive time values
@@ -379,11 +480,16 @@ function findGCDOfTimeDifferences(data, decimalPlaces = 4) {
           currentGCD = gcd(currentGCD, timeDifferences[i]);
       }
 
-      return currentGCD;
+      if (currentGCD < MIN_GCD_THRESHOLD) {
+        return MIN_GCD_THRESHOLD;
+      }
+      else {
+        return currentGCD;
+      }
   } else if (timeDifferences.length === 1) {
       return timeDifferences[0];
   } else {
-      // If there are no non-zero differences, return 0 or handle accordingly
+      // If there are no non-zero differences, return 0
       return 0;
   }
 }
@@ -393,6 +499,10 @@ function createTimeSeries(data, modelToCoordMap, gcdOfTimeDifferences, models, d
 
   models.forEach(model => {
     const coordMap = modelToCoordMap[model];
+
+    console.log("MODEL: ", model);
+    console.log("COORD MAP: ", coordMap);
+    console.log("");
 
     // Iterate through time intervals based on GCD
     for (let currentTime = 0; currentTime <= d3.max(data, d => d.x); currentTime += gcdOfTimeDifferences) {
