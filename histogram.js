@@ -179,18 +179,13 @@ function makeHistograms() {
     var uniqueValues = Array.from(new Set(values));
   
     var bins;
-    if (uniqueValues.length <= 7) { // Threshold for small range data
-      // Calculate the bin width based on the overall range, divided by the number of unique values.
-      var range = d3.max(values) - d3.min(values);
-      var binWidth = range / uniqueValues.length;
-      
-      // Generate bins using the calculated bin width
-      bins = d3.range(d3.min(values), d3.max(values) + binWidth, binWidth).map((start, i, arr) => {
-        var end = i < arr.length - 1 ? arr[i + 1] : start + binWidth;
-        return { 
-          x0: start, 
-          x1: end, 
-          length: values.filter(v => v >= start && v < end).length
+    if (uniqueValues.length <= 5) { // Threshold for small range data
+      // Create a bin for each unique value
+      bins = uniqueValues.map(value => {
+        return {
+          x0: value, // Set the bin start exactly at the value
+          x1: value + 1, // Set the bin end exactly 1 unit ahead
+          length: values.filter(v => v === value).length // Count occurrences of this value
         };
       });
     } else {
