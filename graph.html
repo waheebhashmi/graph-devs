@@ -3,7 +3,88 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>DEVS-Graph Extension w/ D3.js</title>
+  <title>DEVS SIMULATION AND ANALYSIS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+    }
+
+    #header {
+      background-color: #007BFF;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+    }
+
+    #container {
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: 3fr 1fr; /* 3:1 ratio, adjust as needed */
+      gap: 20px; /* space between columns */
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+  }
+  
+    #content {
+      max-width: 1300px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      overflow: auto;
+    }
+
+
+
+    #tooltip {
+      position: absolute;
+      visibility: hidden;
+      padding: 10px;
+      background-color: white;
+      border: 1px solid black;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0;
+    }
+
+    input[type="file"] {
+      margin: 5px 0;
+    }
+
+    #checkboxes {
+      margin-top: 300px; /* Adjust this value to move the checkboxes down */
+      margin-left: 150px;
+    }
+    button#myBtn {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      padding: 8px 10px; /* Reduced left and right padding */
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 200px; /* Adjust width as needed, or use 'auto' for automatic width based on content */
+      display: inline-block; /* This makes the button only as wide as its content */
+    }
+
+    button#myBtn:hover {
+      background-color: #0056b3;
+    }
+    select {
+      margin-bottom: 20px; /* Added space below the select tag */
+    }
+
+
+  </style>
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <div id="tooltip"
@@ -13,8 +94,109 @@
 <input type="file">
 <button id="myBtn">Generate Graph</button>
 
-<svg width="1000" height="1200" id="line-chart"></svg>
-<script src="index.js"></script>
-</body>
+<body>
+  <div id="header">DEVS SIMULATION GRAPH AND ANALYSIS</div>
+  <div id="container">
+    <div id="content">
+      <div id="tooltip"></div>
+      <label for="fileInput">Choose a file to generate a graph (.csv, .txt, .json supported)</label>
+      <input type="file" id="fileInput">
+      <div class="form-row">
+        <label for="graphTypeSelect">Graph Type:</label>
+        <select id="graphTypeSelect">
+          <option value="">Select</option>
+
+          <option value="multivariable">Multi-Variable Line Graph</option>
+          <option value="piecewise">Piecewise Graph</option>
+          <option value="heatmap">Heatmap Graph</option>
+          <option value="histogram_boxplot">Histogram + Boxplot Graph</option>
+        </select>
+      </div>
+      <button id="myBtn">Generate Graph</button>
+      <div id="xAxisRange">
+        <p>Functionalities Below Applicable to Multi-Variable Line Graph Only:</p>
+      <label for="xStart">X-Axis Start:</label>
+      <input id="xStart" type="number" value="0" style="margin-left: 10px;">
+      <label for="xEnd">X-Axis End:</label>
+      <input id="xEnd" type="number" value="100" style="margin-left: 10px;">
+      <button id="updateRange">Update Range</button>
+      <div>
+        <label for="scrollBar">X Axis Scroll:</label>
+        <input id="scrollBar" type="range" min="0" max="100" value="0" style="width: 75%;">
+      </div>
+            </div>
+      <svg width="1300" height="1200" id="">
+
+        <defs>
+          <clipPath id="clip">
+      <rect x="150" y="0" width="850" height="4000"></rect>
+  </clipPath>
+      </defs>
+  </svg>
+      
+
+    </div>
+    <div id="checkboxes">
+    </div>
+  </div>
+  <script>
+    function loadScript(src) {
+      //Remove any previously added script of the same type to avoid duplicates
+      const existingScript = document.querySelector('script[src="' + src + '"]');
+      if (existingScript) {
+        document.body.removeChild(existingScript);
+      }
+  
+      //Create a new script element and add it to the body
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = false; // Load synchronously to ensure scripts are executed in order
+      document.body.appendChild(script);
+
+    
+    }
+  
+
+
+    //Update the SVG element's ID
+    function updateSvgId(newId) {
+      const svg = document.querySelector('#container svg');
+      if (svg) {
+        svg.id = newId;
+      }
+    }
+
+    document.getElementById('graphTypeSelect').addEventListener('change', function() {
+      const value = this.value;
+      let showXAxisRange = false; 
+      let scriptToLoad = '';
+      let newSvgId = '';
+      switch(value) {
+        case 'piecewise':
+          scriptToLoad = 'piecewise.js'; 
+          newSvgId = 'line-chart'; 
+          break;
+        case 'multivariable':
+          scriptToLoad = 'index.js'; 
+          newSvgId = 'line-chart'; 
+          break;
+        case 'heatmap':
+          scriptToLoad = 'heatmap.js';
+          newSvgId = 'heatmap';
+          break;
+        case 'histogram_boxplot':
+          scriptToLoad = 'histogram.js';
+          newSvgId = 'histogram'; 
+          break;
+        default:
+          return;
+      }
+  
+      loadScript(scriptToLoad);
+      updateSvgId(newSvgId);
+    });
+  </script>
+  
+  </body>
 
 </html>
