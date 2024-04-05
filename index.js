@@ -135,6 +135,7 @@ function makeGraph() {
     width = +svg.attr("width"),
     height = +svg.attr("height");
   const tooltip = d3.select("#tooltip");
+  const xOffset = 150;
 
 
   //Creates the x scale
