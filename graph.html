@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <meta charset="utf-8" />
-  <title>DEVS SIMULATION AND ANALYSIS</title>
-  <style>
-    body {
+    <meta charset="utf-8" />
+    <title>DEVS SIMULATION AND ANALYSIS</title>
+    <style>
+        body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
@@ -84,112 +85,110 @@
 
 
   </style>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 
 <body>
-  <div id="header">DEVS SIMULATION GRAPH AND ANALYSIS</div>
-  <div id="container">
-    <div id="content">
-      <div id="tooltip"></div>
-      <label for="fileInput">Choose a file to generate a graph (.csv, .txt, .json supported)</label>
-      <input type="file" id="fileInput">
-      <div class="form-row">
-        <label for="graphTypeSelect">Graph Type:</label>
-        <select id="graphTypeSelect">
-          <option value="">Select</option>
-
-          <option value="multivariable">Multi-Variable Line Graph</option>
-          <option value="piecewise">Piecewise Graph</option>
-          <option value="heatmap">Heatmap Graph</option>
-          <option value="histogram_boxplot">Histogram + Boxplot Graph</option>
-        </select>
-      </div>
-      <button id="myBtn">Generate Graph</button>
-      <div id="xAxisRange">
-        <p>Functionalities Below Applicable to Multi-Variable Line Graph Only:</p>
-      <label for="xStart">X-Axis Start:</label>
-      <input id="xStart" type="number" value="0" style="margin-left: 10px;">
-      <label for="xEnd">X-Axis End:</label>
-      <input id="xEnd" type="number" value="100" style="margin-left: 10px;">
-      <button id="updateRange">Update Range</button>
-      <div>
-        <label for="scrollBar">X Axis Scroll:</label>
-        <input id="scrollBar" type="range" min="0" max="100" value="0" style="width: 75%;">
-      </div>
+    <div id="header">DEVS SIMULATION GRAPH AND ANALYSIS</div>
+    <div id="container">
+        <div id="content">
+            <div id="tooltip"></div>
+            <b>
+                <p>Refresh to change types and upload new graph</p>
+            </b>
+            <label for="fileInput">Choose a file to generate a graph (.csv, .txt, .json supported)</label>
+            <input type="file" id="fileInput">
+            <div class="form-row">
+                <label for="graphTypeSelect">Graph Type:</label>
+                <select id="graphTypeSelect">
+                    <option value="">Select</option>
+                    <option value="multivariable">Multi-Variable Line Graph</option>
+                    <option value="piecewise">Piecewise Graph</option>
+                    <option value="heatmap">Heatmap Graph</option>
+                    <option value="histogram_boxplot">Histogram + Boxplot Graph</option>
+                </select>
             </div>
-      <svg width="1300" height="1200" id="">
-
-        <defs>
-          <clipPath id="clip">
-      <rect x="150" y="0" width="850" height="4000"></rect>
-  </clipPath>
-      </defs>
-  </svg>
-      
-
+            <button id="myBtn">Generate Graph</button>
+            <div id="xAxisRange">
+                <p>Functionalities Below Applicable to Multi-Variable Line Graph Only:</p>
+                <label for="xStart">X-Axis Start:</label>
+                <input id="xStart" type="number" value="0" style="margin-left: 10px;">
+                <label for="xEnd">X-Axis End:</label>
+                <input id="xEnd" type="number" value="100" style="margin-left: 10px;">
+                <button id="updateRange">Update Range</button>
+                <div>
+                    <label for="scrollBar">X Axis Scroll:</label>
+                    <input id="scrollBar" type="range" min="0" max="100" value="0" style="width: 75%;">
+                </div>
+            </div>
+            <svg width="1300" height="1200" id="">
+                <defs>
+                    <clipPath id="clip">
+                        <rect x="150" y="0" width="850" height="4000"></rect>
+                    </clipPath>
+                </defs>
+            </svg>
+        </div>
+        <div id="checkboxes">
+        </div>
     </div>
-    <div id="checkboxes">
-    </div>
-  </div>
-  <script>
+    <script>
     function loadScript(src) {
-      //Remove any previously added script of the same type to avoid duplicates
-      const existingScript = document.querySelector('script[src="' + src + '"]');
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-  
-      //Create a new script element and add it to the body
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = false; // Load synchronously to ensure scripts are executed in order
-      document.body.appendChild(script);
+        //Remove any previously added script of the same type to avoid duplicates
+        const existingScript = document.querySelector('script[src="' + src + '"]');
+        if (existingScript) {
+            document.body.removeChild(existingScript);
+        }
 
-    
+        //Create a new script element and add it to the body
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = false; // Load synchronously to ensure scripts are executed in order
+        document.body.appendChild(script);
+
+
     }
-  
+
 
 
     //Update the SVG element's ID
     function updateSvgId(newId) {
-      const svg = document.querySelector('#container svg');
-      if (svg) {
-        svg.id = newId;
-      }
+        const svg = document.querySelector('#container svg');
+        if (svg) {
+            svg.id = newId;
+        }
     }
 
     document.getElementById('graphTypeSelect').addEventListener('change', function() {
-      const value = this.value;
-      let showXAxisRange = false; 
-      let scriptToLoad = '';
-      let newSvgId = '';
-      switch(value) {
-        case 'piecewise':
-          scriptToLoad = 'piecewise.js'; 
-          newSvgId = 'line-chart'; 
-          break;
-        case 'multivariable':
-          scriptToLoad = 'index.js'; 
-          newSvgId = 'line-chart'; 
-          break;
-        case 'heatmap':
-          scriptToLoad = 'heatmap.js';
-          newSvgId = 'heatmap';
-          break;
-        case 'histogram_boxplot':
-          scriptToLoad = 'histogram.js';
-          newSvgId = 'histogram'; 
-          break;
-        default:
-          return;
-      }
-  
-      loadScript(scriptToLoad);
-      updateSvgId(newSvgId);
+        const value = this.value;
+        let showXAxisRange = false;
+        let scriptToLoad = '';
+        let newSvgId = '';
+        switch (value) {
+            case 'piecewise':
+                scriptToLoad = 'piecewise.js';
+                newSvgId = 'line-chart';
+                break;
+            case 'multivariable':
+                scriptToLoad = 'index.js';
+                newSvgId = 'line-chart';
+                break;
+            case 'heatmap':
+                scriptToLoad = 'heatmap.js';
+                newSvgId = 'heatmap';
+                break;
+            case 'histogram_boxplot':
+                scriptToLoad = 'histogram.js';
+                newSvgId = 'histogram';
+                break;
+            default:
+                return;
+        }
+
+        loadScript(scriptToLoad);
+        updateSvgId(newSvgId);
     });
-  </script>
-  
-  </body>
+    </script>
+</body>
 
 </html>
