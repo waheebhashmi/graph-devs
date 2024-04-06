@@ -211,12 +211,7 @@ function makeGraph() {
 
         //logic used for y scale dynamic sizing
         const maxY = d3.max(group, d => d.y);
-        let heightMultiplier = 1; // Default height multiplier
-        if (maxY > 100) {
-            heightMultiplier = 3;
-        } else if (maxY > 10) {
-            heightMultiplier = 2;
-        }
+      
         const yRange = maxY > 100 ? fixedYOffsetStep * 3 : fixedYOffsetStep;
 
         //if hex, then plots the unique values as is (no range)
@@ -362,15 +357,6 @@ function makeGraph() {
             .attr("font-size", "12px") // Set the font size as needed
             .text("Output");
 
-        const xAxisLabel = lineGroup.append("g")
-            .append("text")
-            .attr("x", 500) // Adjust the position as needed
-            .attr("y", maxY < 100 ? 80 + yOffset - (data[index].intIndex * 100) : 80 + yOffset + 200 - (data[index].intIndex * 100)) // Adjust the position as needed
-            .attr("fill", colorBlack ? "black" : "white")
-            .attr("text-anchor", "end")
-            .attr("font-size", "12px") // Set the font size as needed
-            .text("Time (seconds)");
-
 
         const xAxis = d3.axisBottom(xScale);
         lineGroup
@@ -444,6 +430,7 @@ function toggleLineVisibility(modelName) {
 
 document.getElementById("shiftLeft").addEventListener("click", function () {
     if (xScaleDomainStart !== null && xScaleDomainEnd !== null) {
+        console.log("SADSDS");
         //Ensuring it does not go below 0
         const newStart = Math.max(0, xScaleDomainStart - 10);
 
