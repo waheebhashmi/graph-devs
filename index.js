@@ -444,7 +444,6 @@ function toggleLineVisibility(modelName) {
 
 document.getElementById("shiftLeft").addEventListener("click", function () {
     if (xScaleDomainStart !== null && xScaleDomainEnd !== null) {
-        console.log("SADSDS");
         //Ensuring it does not go below 0
         const newStart = Math.max(0, xScaleDomainStart - 10);
 
