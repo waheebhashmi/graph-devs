@@ -245,6 +245,14 @@ function makeGraph() {
       .attr("model", modelName);
 
 
+      svg.append("g").append("clipPath")
+      .attr("id", "clip")
+      .append("rect")
+      .attr("width", 700) // Use your graph's actual width
+      .attr("height", 5000) // And height
+      .attr("x", 150)
+      .attr("y", 100);
+
     //handling for single data point
     if (group.length === 1 || group.every((element) => element.x === group[0].x)) {
       lineGroup
@@ -271,6 +279,8 @@ function makeGraph() {
         .attr("stroke", colorScale(modelName))
         .attr("stroke-width", lineThickness)
         .attr("model", modelName)
+        .attr("clip-path", "url(#clip)")
+
         .on("mouseover", function (event) {
           updateTooltip(event, modelName, xScale, modelToCoordMap);
         })
@@ -389,7 +399,7 @@ function makeGraph() {
 // Updates the X-axis range based on user input
 function updateXAxisRange() {
 
-  document.getElementById("updateRange").addEventListener("click", function () {
+  document.getElementById("updateRange").addEventListener("click", function() {
     const xStart = parseFloat(document.getElementById("xStart").value);
     const xEnd = parseFloat(document.getElementById("xEnd").value);
   
@@ -428,6 +438,25 @@ function toggleLineVisibility(modelName) {
     yOffset += fixedYOffsetStep;
   });
 }
+
+document.getElementById("shiftLeft").addEventListener("click", function() {
+  // Ensure there's a range defined and it doesn't go below 0
+  if (xScaleDomainStart !== null && xScaleDomainEnd !== null && xScaleDomainStart > 0) {
+      const shiftAmount = Math.max(10, xScaleDomainStart); // Ensure not shifting below 0
+      xScaleDomainStart = Math.max(0, xScaleDomainStart - shiftAmount); // Prevent negative start
+      xScaleDomainEnd = Math.max(xScaleDomainStart + 10, xScaleDomainEnd - shiftAmount);
+      redrawGraphWithNewDomain();
+  }
+});
+
+document.getElementById("shiftRight").addEventListener("click", function() {
+  // Check if there's a defined range
+  if (xScaleDomainStart !== null && xScaleDomainEnd !== null) {
+      xScaleDomainStart += 10;
+      xScaleDomainEnd += 10;
+      redrawGraphWithNewDomain();
+  }
+});
 
 function redrawGraphWithNewDomain() {
   d3.select("svg").selectAll("*").remove(); // Clear SVG content
