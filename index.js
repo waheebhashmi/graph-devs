@@ -26,7 +26,7 @@ function handleFileReadClick() {
 // Reads and processes the input file (logic)
 function readAndPrint(file) {
     const reader = new FileReader();
-    reader.onload = function () {
+    reader.onload = function() {
         const lines = this.result.split('\n');
         xScaleDomainStart = null; // Reset x-axis start
         xScaleDomainEnd = null; // Reset x-axis end
@@ -124,7 +124,7 @@ function readAndPrint(file) {
 
     reader.readAsText(file);
     //Creates the graph based on the data
-    setTimeout(function () {
+    setTimeout(function() {
         makeGraph();
     }, 1000);
 }
@@ -211,7 +211,7 @@ function makeGraph() {
 
         //logic used for y scale dynamic sizing
         const maxY = d3.max(group, d => d.y);
-      
+
         const yRange = maxY > 100 ? fixedYOffsetStep * 3 : fixedYOffsetStep;
 
         //if hex, then plots the unique values as is (no range)
@@ -279,13 +279,13 @@ function makeGraph() {
                 .attr("model", modelName)
                 .attr("clip-path", "url(#clip)")
 
-                .on("mouseover", function (event) {
+                .on("mouseover", function(event) {
                     updateTooltip(event, modelName, xScale, modelToCoordMap);
                 })
-                .on("mousemove", function (event) {
+                .on("mousemove", function(event) {
                     updateTooltip(event, modelName, xScale, modelToCoordMap);
                 })
-                .on("mouseout", function () {
+                .on("mouseout", function() {
                     tooltip.style("visibility", "hidden");
                 });
         }
@@ -319,14 +319,14 @@ function makeGraph() {
                 .attr("text-anchor", "end")
                 .text(modelName))
             .selectAll(".tick text")
-            .style("fill", function (d) {
+            .style("fill", function(d) {
                 return showAsBlackBox ? "black" : "currentColor";
             })
-            .text(function (d) {
+            .text(function(d) {
                 // Replace text with a black box if showAsBlackBox is true
                 return showAsBlackBox ? "□" : d;
             })
-            .on("mouseover", function (event, d) {
+            .on("mouseover", function(event, d) {
                 if (showAsBlackBox) {
                     tooltip1.html(d)
                         .style("opacity", .9)
@@ -339,7 +339,7 @@ function makeGraph() {
                         .style("height", "auto");
                 }
             })
-            .on("mouseout", function (d) {
+            .on("mouseout", function(d) {
                 if (showAsBlackBox) {
                     tooltip1.transition()
                         .style("opacity", 0);
@@ -388,7 +388,7 @@ function makeGraph() {
 // Updates the X-axis range based on user input
 function updateXAxisRange() {
 
-    document.getElementById("updateRange").addEventListener("click", function () {
+    document.getElementById("updateRange").addEventListener("click", function() {
         const xStart = parseFloat(document.getElementById("xStart").value);
         const xEnd = parseFloat(document.getElementById("xEnd").value);
 
@@ -428,9 +428,9 @@ function toggleLineVisibility(modelName) {
     });
 }
 
-document.getElementById("shiftLeft").addEventListener("click", function () {
+document.getElementById("shiftLeft").addEventListener("click", function() {
     if (xScaleDomainStart !== null && xScaleDomainEnd !== null) {
-        console.log("SADSDS");
+
         //Ensuring it does not go below 0
         const newStart = Math.max(0, xScaleDomainStart - 10);
 
@@ -448,7 +448,7 @@ document.getElementById("shiftLeft").addEventListener("click", function () {
 });
 
 
-document.getElementById("shiftRight").addEventListener("click", function () {
+document.getElementById("shiftRight").addEventListener("click", function() {
     // Check if there's a defined range
     if (xScaleDomainStart !== null && xScaleDomainEnd !== null) {
         xScaleDomainStart += 10;
@@ -463,7 +463,7 @@ function redrawGraphWithNewDomain() {
 }
 
 
-document.getElementById('scrollBar').addEventListener('input', function () {
+document.getElementById('scrollBar').addEventListener('input', function() {
     const xStart = parseFloat(document.getElementById("xStart").value);
     const xEnd = parseFloat(document.getElementById("xEnd").value);
     const scrollValue = parseInt(this.value); // Value from 0 to 100
@@ -485,6 +485,7 @@ document.getElementById('scrollBar').addEventListener('input', function () {
 
 // Used for DEVS-Graph Integration - Updates checkboxes based on the selection, e.g., when receiving a message (from DEVS-Graph)
 function updateCheckboxesBasedOnSelection(selectedModel) {
+    const selectedModelLower = selectedModel.toLowerCase();
     const allCheckboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]');
     let keys;
     if (Array(globalModel)[0].top_model[selectedModel] != null) {
@@ -500,9 +501,9 @@ function updateCheckboxesBasedOnSelection(selectedModel) {
         let checkboxModelNameBeforeSpace = checkboxModelName.split(" ")[0];
 
 
-        if (checkboxModelName.startsWith(selectedModel)) {
+        if (checkboxModelName.startsWith(selectedModelLower)) {
             checkbox.checked = true;
-        } else if (selectedModel === "top_model") {
+        } else if (selectedModelLower === "top_model") {
             allCheckboxes.forEach(checkbox => checkbox.checked = true);
         } else if (keys.includes(checkboxModelNameBeforeSpace)) {
             checkbox.checked = true;
@@ -512,6 +513,7 @@ function updateCheckboxesBasedOnSelection(selectedModel) {
         toggleLineVisibility(checkboxModelName);
     });
 }
+
 
 // Makes a map which we can reference to find the Y value of a model given its X coordinate
 // Since we're piece-wise we use this later by using the largest x value in the map less
